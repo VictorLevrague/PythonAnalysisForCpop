@@ -1,24 +1,19 @@
-from tkinter import ttk
-
-import numpy as np
-import pandas as pd
-from math import *
-import scipy.interpolate as interpolate
+import math
 import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
-from scipy import integrate
-import csv
-import uproot
-import time
-from collections import Counter
-from xml.dom import minidom
-import sys
-import warnings
-from pyexcel.cookbook import merge_all_to_a_book
-import glob
-from tkinter import *
+import numpy as np
 import os
+import pandas
 from pyexcelerate import Workbook
+import scipy.interpolate as interpolate
+import sys
+import time
+import tkinter
+import tkinter.ttk
+import uproot
+import warnings
+from xml.dom import minidom
+
+
 
 warnings.filterwarnings("error")
 
@@ -42,10 +37,11 @@ def count_number_of_cellsl_XML(xml_filename):
             x = a.firstChild.data
             nb_x += 1
     return(nb_x)
+#
+# def CellSurvivalCalculations():
+#
+#
 
-def CellSurvivalCalculations():
-
-    
 
 def open_available_data_window():
 
@@ -54,7 +50,9 @@ def open_available_data_window():
     #nom_config = "example_config"
     # nom_config = "Elg95um75CP" # Les fichiers contenant les masses de toutes les cellules, et ceux des ID de cellules supprimés de CPOP à G4, sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
 
-    geom_list = ["Elg030um75CP", "Elg050um75CP", "Elg070um75CP", "Elg160um75CP", "Elg095um25CP", "Elg095um50CP", "Elg095um75CP", "Elg095um75CP_2", "Elg100um40CP"]
+    geom_list = ["Elg030um75CP", "Elg050um75CP", "Elg070um75CP", "Elg160um75CP", "Elg095um25CP",
+                 "Elg095um50CP", "Elg095um75CP", "Elg095um75CP_2", "Elg100um40CP"]
+
     cp_list= [25, 50, 75]
     global r_sph
     r_sph = geom_list[geom_cb.current()][3:6]
@@ -135,21 +133,21 @@ def open_available_data_window():
 
     print(available_data_name_file)
 
-    window_data = Toplevel()
+    window_data = tkinter.Toplevel()
     window_data.geometry("700x300")
 
-    List_data_Txt = Label(window_data, text="Data available :", fg='blue')
+    List_data_Txt = tkinter.Label(window_data, text="Data available :", fg='blue')
     List_data_Txt.place(x=100, y=100)
-    selected_data = StringVar()
+    selected_data = tkinter.StringVar()
     global data_cb
-    data_cb = ttk.Combobox(window_data, width=35, textvariable=selected_data)
+    data_cb = tkinter.ttk.Combobox(window_data, width=35, textvariable=selected_data)
     data_cb['values'] = available_data_date
     data_cb.place(x=200, y=100)
 
     global nom_fichier_root
     nom_fichier_root = "output_"  # Les fichiers root, contenus dans le dossier_root, s'appellent nom_fichier_root{0,...}.root
 
-    Validate_data = Button(window_data, text="Validate", command=main)
+    Validate_data = tkinter.Button(window_data, text="Validate", command=main)
     Validate_data.place(x=280, y=200)
 
     # window_data.mainloop()
@@ -191,17 +189,17 @@ def main() :
 
     ######################## Tables Conversion E en LET ########################################
 
-    LETG4 = pd.read_excel("E_TEL/He_G4.xlsx").to_records()
+    LETG4 = pandas.read_excel("E_TEL/He_G4.xlsx").to_records()
     E = LETG4['E(keV)']
     LET = LETG4['LET(keV/um)']
     interp_He_LETG4_E = interpolate.interp1d(E, LET, fill_value="extrapolate", kind= "linear") #Conversion continue de E en LET de Geant4, pas utilisée dans le code avec les corrections sur dn1/dE
 
-    LET_SRIM_File = pd.read_excel("E_TEL/He_TEL_SRIM.xlsx").to_records()
+    LET_SRIM_File = pandas.read_excel("E_TEL/He_TEL_SRIM.xlsx").to_records()
     E_SRIM = LET_SRIM_File['E(keV)']
     LET_SRIM = LET_SRIM_File['LET(keV/um)']
     interp_He_LETSRIM_As_Function_Of_E = interpolate.interp1d(E_SRIM, LET_SRIM, fill_value="extrapolate", kind= "linear")
 
-    data_He = pd.read_excel("Tables/AlphaBetaHeG4.ods").to_records()
+    data_He = pandas.read_excel("Tables/AlphaBetaHeG4.ods").to_records()
     LETG4_He = data_He['LET G4'] #Conversion discrète de E en LET de Geant4
     LETYasmine_He= data_He['LET'] #LET utilisés par Yasmine dans la table qu'elle nous a fournie
     xE_He = data_He['E(keV)'] #keV
@@ -235,13 +233,13 @@ def main() :
     mv = 1e-3  # 10-3 kg/cm³
     a = (keV / (mv * (1e-4)))
 
-    r= 7*1e-4 #Rayon du noyau de la lignée HSG
-    S=pi*r**2
-    l=1
+    r = 7*1e-4 #Rayon du noyau de la lignée HSG
+    S = math.pi*r**2
+    l = 1
 
-    conv_LET_E_SRIM_Valide_Approx_Alpha_Beta=interp_He_LETSRIM_As_Function_Of_E(E_Valide_Approx_Alpha_Beta)
-    conv_LET_E_G4_Valide_Approx_Alpha_Beta=interp_He_LETG4_As_Function_Of_E(E_Valide_Approx_Alpha_Beta)
-    dn1_dE=-np.log(1 - Alpha(E_Valide_Approx_Alpha_Beta,0)*a*conv_LET_E_SRIM_Valide_Approx_Alpha_Beta/S) / (l * conv_LET_E_G4_Valide_Approx_Alpha_Beta) #calcul nombre d'évènements létaux par keV, via l'approximation d'alpha de Mario
+    conv_LET_E_SRIM_Valide_Approx_Alpha_Beta = interp_He_LETSRIM_As_Function_Of_E(E_Valide_Approx_Alpha_Beta)
+    conv_LET_E_G4_Valide_Approx_Alpha_Beta = interp_He_LETG4_As_Function_Of_E(E_Valide_Approx_Alpha_Beta)
+    dn1_dE = -np.log(1 - Alpha(E_Valide_Approx_Alpha_Beta,0)*a*conv_LET_E_SRIM_Valide_Approx_Alpha_Beta/S) / (l * conv_LET_E_G4_Valide_Approx_Alpha_Beta) #calcul nombre d'évènements létaux par keV, via l'approximation d'alpha de Mario
 
     dn1_dE_int = interpolate.interp1d(E_Valide_Approx_Alpha_Beta, dn1_dE, fill_value="extrapolate", kind="linear") #Conversion continue de E en dn1/dE
 
@@ -1146,14 +1144,14 @@ def main() :
 global Labeling_Percentage
 global Labeling_Percentage_Entry
 
-window = Tk()
+window = tkinter.Tk()
 window.geometry("1000x500")
 
-StudyType_Txt = Label(window, text = "Type of study :", fg='red')
+StudyType_Txt = tkinter.Label(window, text = "Type of study :", fg='red')
 StudyType_Txt.place (x=100, y=50)
 
-Labeling_Percentage = Label(window, text="Labeling percentage : ", fg='blue')
-Labeling_Percentage_Entry = Entry(window, width=35)
+Labeling_Percentage = tkinter.Label(window, text="Labeling percentage : ", fg='blue')
+Labeling_Percentage_Entry = tkinter.Entry(window, width=35)
 
 def if_internalization_study():
     if Labeling_Percentage.winfo_exists():
@@ -1162,10 +1160,10 @@ def if_internalization_study():
         Labeling_Percentage_Entry.destroy()
     global DistribName_Txt
     global distrib_name_cb
-    DistribName_Txt = Label(window, text="Intra cellular distribution name :", fg='blue')
+    DistribName_Txt = tkinter.Label(window, text="Intra cellular distribution name :", fg='blue')
     DistribName_Txt.place(x=100, y=100)
-    selected_distrib_name = StringVar()
-    distrib_name_cb = ttk.Combobox(window, width=35, textvariable=selected_distrib_name)
+    selected_distrib_name = tkinter.StringVar()
+    distrib_name_cb = tkinter.ttk.Combobox(window, width=35, textvariable=selected_distrib_name)
     distrib_name_cb['values'] = ['Membrane', 'Cytoplasm', 'Homogeneous', 'Nucleus']
     distrib_name_cb.place(x=400, y=100)
 
@@ -1175,60 +1173,60 @@ def if_labeling_study() :
         DistribName_Txt.destroy()
     if distrib_name_cb.winfo_exists():
         distrib_name_cb.destroy()
-    Labeling_Percentage = Label(window, text="Labeling percentage : ", fg='blue')
+    Labeling_Percentage = tkinter.Label(window, text="Labeling percentage : ", fg='blue')
     Labeling_Percentage.place(x=100, y=100)
-    Labeling_Percentage_Entry = Entry(window, width=35)
+    Labeling_Percentage_Entry = tkinter.Entry(window, width=35)
     Labeling_Percentage_Entry.place(x=400, y=100)
 
 
-radioValue_studyType=IntVar()
+radioValue_studyType=tkinter.IntVar()
 radioValue_studyType.set(0)
-r1=Radiobutton(window, text="Internalization", variable=radioValue_studyType,value=0,command=if_internalization_study)
-r2=Radiobutton(window, text="Labeling", variable=radioValue_studyType,value=1, command=if_labeling_study)
+r1=tkinter.Radiobutton(window, text="Internalization", variable=radioValue_studyType,value=0,command=if_internalization_study)
+r2=tkinter.Radiobutton(window, text="Labeling", variable=radioValue_studyType,value=1, command=if_labeling_study)
 r1.place(x=390,y=50)
 r2.place(x=590, y=50)
 
-DistribName_Txt = Label(window, text="Intra cellular distribution name :", fg='blue')
+DistribName_Txt = tkinter.Label(window, text="Intra cellular distribution name :", fg='blue')
 DistribName_Txt.place(x=100, y=100)
-selected_distrib_name = StringVar()
-distrib_name_cb = ttk.Combobox(window, width=35 , textvariable=selected_distrib_name)
+selected_distrib_name = tkinter.StringVar()
+distrib_name_cb = tkinter.ttk.Combobox(window, width=35 , textvariable=selected_distrib_name)
 distrib_name_cb['values'] = ['Membrane', 'Cytoplasm', 'Homogeneous', 'Nucleus']
 distrib_name_cb.current(0)
 distrib_name_cb.place(x=400, y=100)
 
 
-GeomName_Txt = Label(window, text = "Geometry name :", fg='blue')
+GeomName_Txt = tkinter.Label(window, text = "Geometry name :", fg='blue')
 GeomName_Txt.place (x=100, y=150)
-selected_geom = StringVar()
-geom_cb = ttk.Combobox(window, width=35 , textvariable=selected_geom)
+selected_geom = tkinter.StringVar()
+geom_cb = tkinter.ttk.Combobox(window, width=35 , textvariable=selected_geom)
 geom_cb['values'] = ["30µmRadius Spheroid, 75 % cell packing", "50µmRadius Spheroid, 75 % cell packing", "70µmRadius Spheroid, 75 % cell packing", "160µmRadius Spheroid, 75 % cell packing" ,"95µmRadius Spheroid, 25 % cell packing", "95µmRadius Spheroid, 50 % cell packing", "95µmRadius Spheroid, 75 % cell packing", "95µmRadius Spheroid, 75 % cell packing 2", "100µmRadius Spheroid, 40 % cell packing"]
 geom_cb.place(x=400, y=150)
 
 
-RadionuclideName_Txt = Label(window, text = "Radionuclide used :", fg='blue')
+RadionuclideName_Txt = tkinter.Label(window, text = "Radionuclide used :", fg='blue')
 RadionuclideName_Txt.place (x=100, y=200)
-RadionuclideName_Entry = Entry(window, width=35)
-RadionuclideName_Entry.insert(END, "At211")
+RadionuclideName_Entry = tkinter.Entry(window, width=35)
+RadionuclideName_Entry.insert(tkinter.END, "At211")
 RadionuclideName_Entry.place(x=400, y=200)
 
-NbSimulations_Txt = Label(window, text = "Number of simulations to analyse :", fg='blue')
+NbSimulations_Txt = tkinter.Label(window, text = "Number of simulations to analyse :", fg='blue')
 NbSimulations_Txt.place (x=100, y=250)
-NbSimulations_Entry = Entry(window, width=35)
-NbSimulations_Entry.insert(END, "20")
+NbSimulations_Entry = tkinter.Entry(window, width=35)
+NbSimulations_Entry.insert(tkinter.END, "20")
 NbSimulations_Entry.place(x=400, y=250)
 
-Diffusion_Txt = Label(window, text = "Daughter diffusion :", fg='blue')
+Diffusion_Txt = tkinter.Label(window, text = "Daughter diffusion :", fg='blue')
 Diffusion_Txt.place (x=100, y=300)
-diffusion_choice = StringVar()
-Diffusion_List = ttk.Combobox(window, width=35, textvariable=diffusion_choice)
+diffusion_choice = tkinter.StringVar()
+Diffusion_List = tkinter.ttk.Combobox(window, width=35, textvariable=diffusion_choice)
 Diffusion_List['values'] = ["Yes", "No"]
 Diffusion_List.current(1)
 Diffusion_List.place(x=400, y=300)
 
-Number_Particles_PerCell_Txt = Label(window, text = "Number of alpha particles per cell :", fg='blue')
+Number_Particles_PerCell_Txt = tkinter.Label(window, text = "Number of alpha particles per cell :", fg='blue')
 Number_Particles_PerCell_Txt.place (x=100, y=350)
-number_Particles_PerCell_choice = StringVar()
-Number_Particles_PerCell_List = ttk.Combobox(window, width=35, textvariable=number_Particles_PerCell_choice)
+number_Particles_PerCell_choice = tkinter.StringVar()
+Number_Particles_PerCell_List = tkinter.ttk.Combobox(window, width=35, textvariable=number_Particles_PerCell_choice)
 Number_Particles_PerCell_List['values'] = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "42"]
 Number_Particles_PerCell_List.current(0)
 Number_Particles_PerCell_List.place(x=400, y=350)
@@ -1236,7 +1234,7 @@ Number_Particles_PerCell_List.place(x=400, y=350)
 
 
 
-Validate = Button(window, text = "Validate", command = open_available_data_window)
+Validate = tkinter.Button(window, text = "Validate", command = open_available_data_window)
 Validate.place(x=480, y=400)
 
 window.mainloop()
