@@ -1,3 +1,20 @@
+"""
+
+Script allowing to convert .root raw data of Geant4 in data of interest
+
+Usage
+======
+    Run script to open graphical interface
+
+Returns
+=======
+    doses to cell nucleus and cytoplams
+    cell survivals
+    cross-fire information
+
+
+"""
+
 import math
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,9 +30,11 @@ import uproot
 import warnings
 from xml.dom import minidom
 
-
-
 warnings.filterwarnings("error")
+
+KEV_IN_J = 1.60218 * 1e-16
+WATER_DENSITY = 1e-3  # 10-3 kg/cm³
+UNIT_COEFFICIENT  = (KEV_IN_J / (WATER_DENSITY * (1e-4)))
 
 bins = 200
 start_time1 = time.time()
@@ -229,17 +248,13 @@ def main() :
 
     ######################## Conversion des alpha en dn1/dE ########################################
 
-    keV = 1.60218*1e-16
-    mv = 1e-3  # 10-3 kg/cm³
-    a = (keV / (mv * (1e-4)))
-
     r = 7*1e-4 #Rayon du noyau de la lignée HSG
     S = math.pi*r**2
     l = 1
 
     conv_LET_E_SRIM_Valide_Approx_Alpha_Beta = interp_He_LETSRIM_As_Function_Of_E(E_Valide_Approx_Alpha_Beta)
     conv_LET_E_G4_Valide_Approx_Alpha_Beta = interp_He_LETG4_As_Function_Of_E(E_Valide_Approx_Alpha_Beta)
-    dn1_dE = -np.log(1 - Alpha(E_Valide_Approx_Alpha_Beta,0)*a*conv_LET_E_SRIM_Valide_Approx_Alpha_Beta/S) / (l * conv_LET_E_G4_Valide_Approx_Alpha_Beta) #calcul nombre d'évènements létaux par keV, via l'approximation d'alpha de Mario
+    dn1_dE = -np.log(1 - Alpha(E_Valide_Approx_Alpha_Beta,0)*UNIT_COEFFICIENT*conv_LET_E_SRIM_Valide_Approx_Alpha_Beta/S) / (l * conv_LET_E_G4_Valide_Approx_Alpha_Beta) #calcul nombre d'évènements létaux par keV, via l'approximation d'alpha de Mario
 
     dn1_dE_int = interpolate.interp1d(E_Valide_Approx_Alpha_Beta, dn1_dE, fill_value="extrapolate", kind="linear") #Conversion continue de E en dn1/dE
 
@@ -689,9 +704,6 @@ def main() :
 
             n1=interpolate.interp1d(E_He, f_He, fill_value="extrapolate", kind= "linear") #fonction primitive continue en fonction de E
 
-            keV_J=1.60218e-16
-            MeV_J = 1.60218e-13
-
             n=0
             edep_n=0
             edep_c = 0
@@ -707,10 +719,10 @@ def main() :
             print("len((data_EdepCell[ind_dose])[fEdepn])  = ", len((data_EdepCell[0])["fEdepn"]) )
 
             for ind_dose in range(0, nb_division_pack_cellules):
-                dosen_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepn"]) * keV_J / masse_nucleus)
+                dosen_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepn"]) * KEV_IN_J / masse_nucleus)
                 #dosen_append_sur_une_simu_np = 0
-                dosec_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepc"]) * keV_J / masse_cyto)
-                dosec_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepc"]) * keV_J / masse_cyto)
+                dosec_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepc"]) * KEV_IN_J / masse_cyto)
+                dosec_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepc"]) * KEV_IN_J / masse_cyto)
                 #dosec_append_sur_une_simu_np += 0
 
 
@@ -883,7 +895,7 @@ def main() :
         dosem_append_sur_toutes_simus.append(dosem_append_sur_une_simu_np)
         dosen_c_append_sur_toutes_simus.append(dosen_append_sur_une_simu_np+dosec_append_sur_une_simu_np)
 
-        Dose_Spheroid = data_EdepCell[0]["fEdep_sph"]* keV_J / masse_tum
+        Dose_Spheroid = data_EdepCell[0]["fEdep_sph"]* KEV_IN_J / masse_tum
 
 
 
@@ -1001,8 +1013,8 @@ def main() :
 
     # Edepmoy_n_p=round(np.mean(Edepmoy_n),2)
     # incertEdepmoy_n_p=round(np.std(Edepmoy_n)/np.sqrt(nb_config-indice_depart),2)
-    # Dmoy_n_p=round(np.mean(Edepmoy_n*keV_J*100)/masse_noyau,2)
-    # incertDmoy_n_p=round(np.std((Edepmoy_n*keV_J*100)/masse_noyau)/np.sqrt(nb_config-indice_depart),2)
+    # Dmoy_n_p=round(np.mean(Edepmoy_n*KEV_IN_J*100)/masse_noyau,2)
+    # incertDmoy_n_p=round(np.std((Edepmoy_n*KEV_IN_J*100)/masse_noyau)/np.sqrt(nb_config-indice_depart),2)
     #
 
     print()
