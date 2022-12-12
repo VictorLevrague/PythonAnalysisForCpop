@@ -45,7 +45,7 @@ np.set_printoptions(threshold=sys.maxsize)
 global available_data
 
 
-def count_number_of_cellsl_XML(xml_filename):
+def count_number_of_cells_in_xml_file(xml_filename):
     file = minidom.parse(xml_filename)
     cell = file.getElementsByTagName('CELL')
 
@@ -57,7 +57,7 @@ def count_number_of_cellsl_XML(xml_filename):
             nb_x += 1
     return(nb_x)
 #
-# def CellSurvivalCalculations():
+# def cell_Survival_calculations():
 #
 #
 
@@ -80,27 +80,27 @@ def open_available_data_window():
 
     global nom_config
     nom_config = (geom_list[geom_cb.current()])  # Les fichiers contenant les masses de toutes les cellules, et ceux des ID de cellules supprimés de CPOP à G4, sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
-    global cp
+    global spheroid_compaction
     # cp = (cp_list[geom_cb.current()])
     cp = geom_list[geom_cb.current()][8:10]
-    print("cp : ", cp)
+    print("spheroid_compaction : ", spheroid_compaction)
 
     global xml_geom
     xml_geom = "Cpop_Geom_XML/" + nom_config + ".cfg" + ".xml"
 
     global nb_cellules_xml
-    nb_cellules_xml = count_number_of_cellsl_XML(xml_geom)  # Nombre de cellules contenues dans le fichier .xml de géométrie créé par CPOP
+    nb_cellules_xml = count_number_of_cells_in_xml_file(xml_geom)  # Nombre de cellules contenues dans le fichier .xml de géométrie créé par CPOP
     print("nb_cellules_xml", nb_cellules_xml)
     # nb_cellules_reel = 3069 # Nombre de cellules générées réellement dans la simulation Geant4, après gestion de la superposition
 
-    # DistribName="Membrane"
-    global DistribName
-    DistribName = (distrib_name_cb.get())
+    # cell_compartment_radionuclide="Membrane"
+    global cell_compartment_radionuclide
+    cell_compartment_radionuclide = (distrib_name_cb.get())
 
-    study_type = radioValue_studyType.get()  # 0 for internalization study, 1 for labeling study
+    study_type = radiovalue_study_type.get()  # 0 for internalization study, 1 for labeling study
 
     global nb_simus
-    nb_simus = int(NbSimulations_Entry.get())  # Correspond au nombre de simulations complètes lancées, c'est à dire le nombre de seeds différentes lancées. C'est ce qui va déterminer la statistique obtenue
+    nb_simus = int(nb_simulations_entry.get())  # Correspond au nombre de simulations complètes lancées, c'est à dire le nombre de seeds différentes lancées. C'est ce qui va déterminer la statistique obtenue
     global nb_division_simus
     nb_division_simus = 1  # Pour du multi-threading "à la main", cela correspond au nombre de jobs en lequel est divisé une simulation complète.
     # Sinon, mettre 1.
@@ -116,7 +116,7 @@ def open_available_data_window():
     global study_type_folder_name
 
     if (study_type == 0):
-        SimulationName = DistribName
+        SimulationName = cell_compartment_radionuclide
         study_type_folder_name = "Internalization"
     elif (study_type == 1):
         LabelingPercentage_get = Labeling_Percentage_Entry.get()
@@ -135,7 +135,7 @@ def open_available_data_window():
     global bool_diff
     bool_diff = ["Yes","No"]
     global rn_name
-    rn_name = RadionuclideName_Entry.get()
+    rn_name = radionuclide_name_entry.get()
     global nb_particles_per_cell
     nb_particles_per_cell = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "42"]
 
@@ -144,7 +144,7 @@ def open_available_data_window():
     available_data_date = []
     available_data_name_file = []
     for i in range(0, len(output_folders_name)):
-        if ("_" + DistribName + "_" + str(cp) + "CP_" + str(r_sph) + "um_" + rn_name + "_diff" + bool_diff[Diffusion_List.current()] + "_" + str(nb_particles_per_cell[Number_Particles_PerCell_List.current()] + "ppc")) in \
+        if ("_" + cell_compartment_radionuclide + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" + rn_name + "_diff" + bool_diff[diffusion_list.current()] + "_" + str(nb_particles_per_cell[number_particles_per_cell_list.current()] + "ppc")) in \
                 output_folders_name[i]:
             # available_data.append(output_folders_name[i])
             available_data_date.append(output_folders_name[i][0:10])
@@ -181,7 +181,7 @@ def main() :
 
 
     global nom_dossier_pour_excel_analyse
-    nom_dossier_pour_excel_analyse = available_data_date[data_cb.current()] + "_" + "_" + str(cp) + "CP_" + str(r_sph) + "um_" + rn_name + "_diff" + bool_diff[Diffusion_List.current()] + "_" + str(nb_particles_per_cell[Number_Particles_PerCell_List.current()]) + "ppc"
+    nom_dossier_pour_excel_analyse = available_data_date[data_cb.current()] + "_" + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" + rn_name + "_diff" + bool_diff[diffusion_list.current()] + "_" + str(nb_particles_per_cell[number_particles_per_cell_list.current()]) + "ppc"
 
     try:
         os.makedirs(os.path.join(
@@ -232,7 +232,7 @@ def main() :
     xc=[0.46545609,0.38084839,0.48452192]
     betag = [0.0961, 0.0405, 0.0625]  # constante de Monini et al. 2019
 
-    def Beta(E,type_cell): #E en MeV/nucléon
+    def beta(E,type_cell): #E en MeV/nucléon
         return y0[type_cell] + (A[type_cell]/(2*np.pi))*(W[type_cell]/(((E-xc[type_cell])**2)+(W[type_cell]**2)/4));
 
     sig0=[49*np.pi,24.01*np.pi,34.81*np.pi]
@@ -240,10 +240,10 @@ def main() :
     #E_Valide_Approx_Alpha_Beta=LET_SRIM_File['E_valide(keV)']
     E_Valide_Approx_Alpha_Beta=np.arange(200,90001)
 
-    def Alpha(E,type_cell):
+    def alpha(E,type_cell):
         conv_LET_E_SRIM=interp_He_LETSRIM_As_Function_Of_E(E)
         b = betag[type_cell] * (((a_cst * conv_LET_E_SRIM * 0.8)/sig0[type_cell]) ** 2)
-        return ((sig0[type_cell] +((a_cst * conv_LET_E_SRIM * (b-1))*np.sqrt(Beta(E/4000,type_cell)/(b+(b*b)/2))))/(a_cst * conv_LET_E_SRIM)) ;
+        return ((sig0[type_cell] +((a_cst * conv_LET_E_SRIM * (b-1))*np.sqrt(beta(E/4000,type_cell)/(b+(b*b)/2))))/(a_cst * conv_LET_E_SRIM)) ;
 
 
     ######################## Conversion des alpha en dn1/dE ########################################
@@ -254,7 +254,7 @@ def main() :
 
     conv_LET_E_SRIM_Valide_Approx_Alpha_Beta = interp_He_LETSRIM_As_Function_Of_E(E_Valide_Approx_Alpha_Beta)
     conv_LET_E_G4_Valide_Approx_Alpha_Beta = interp_He_LETG4_As_Function_Of_E(E_Valide_Approx_Alpha_Beta)
-    dn1_dE = -np.log(1 - Alpha(E_Valide_Approx_Alpha_Beta,0)*UNIT_COEFFICIENT*conv_LET_E_SRIM_Valide_Approx_Alpha_Beta/S) / (l * conv_LET_E_G4_Valide_Approx_Alpha_Beta) #calcul nombre d'évènements létaux par keV, via l'approximation d'alpha de Mario
+    dn1_dE = -np.log(1 - alpha(E_Valide_Approx_Alpha_Beta,0)*UNIT_COEFFICIENT*conv_LET_E_SRIM_Valide_Approx_Alpha_Beta/S) / (l * conv_LET_E_G4_Valide_Approx_Alpha_Beta) #calcul nombre d'évènements létaux par keV, via l'approximation d'alpha de Mario
 
     dn1_dE_int = interpolate.interp1d(E_Valide_Approx_Alpha_Beta, dn1_dE, fill_value="extrapolate", kind="linear") #Conversion continue de E en dn1/dE
 
@@ -1110,30 +1110,30 @@ def main() :
 
     id_cell_arr=np.arange(nb_cellules_reel)
 
-    # fname = "AnalysisResults/" + study_type_folder_name + "/" +  nom_dossier_pour_excel_analyse  + "/" + "Emission" + DistribName + ".csv"
+    # fname = "AnalysisResults/" + study_type_folder_name + "/" +  nom_dossier_pour_excel_analyse  + "/" + "Emission" + cell_compartment_radionuclide + ".csv"
     # with open(fname, "w") as f:
     #     fileWriter = csv.writer(f, delimiter=',',lineterminator='\n')
     #     fileWriter.writerow(['ID_Cell','Zone_Cell' ,'Survie locale', 'Incert Survie Locale','Survie globale', 'Dmoy au noyau, par simu (Gy)','Incert Dmoy au noyau par simu(Gy)','Dmoy cyto, par simu (Gy)','incert Dmoy cyto par simu (Gy)','Dmoy au noyau+cyto, par simu (Gy)','incert Dmoy noy+cyto par simu (Gy)', 'Ratio Crossfire %','Incert Ratio Crossfire %','Ratio Crossfire zone 1 %', 'Ratio Crossfire zone 2 %','Nb noyau par particule', 'Sum dose sur tous noyaux', 'Sum dose sur toutes cellules', 'Edep moy par particule dans noyau', 'Incert Edep moy par particule dans noyau', 'Nb noyaux par particule', 'Incert nb noyaux par particule' ,'TCP','Incert_TCP','EUD','Dose bio','IncertDoseBio'])
     #     for w in range(0,nb_cellules_reel):
     #         fileWriter.writerow([id_cell_arr[w],zone_cell[w],surviel[w], incert_mean_cell_survival, survieg[w],dosen_tot[w],incertdmoy_n_tot[w],dosec_tot[w],incertdmoy_c_tot[w],dosen_c_tot[w],incertdmoy_n_c_tot[w], np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_np)*100, incert_crossfire,np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_zone1_np)*100, np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_zone2_np)*100,np.mean(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus), sum_dose_noyau, sum_dose_tot, mean_Edep_dans_noy_par_particule,np.std(Edep_dans_noy_par_particule_np)/np.sqrt(len(Edep_dans_noy_par_particule_np)), np.mean(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus), np.std(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus)/np.sqrt(len(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus)),TCP,np.std(TCP_append_sur_toutes_simus_np),EUD, dose_bio[w], incert_dose_bio])
     #
-    # fname_xlsx = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse  + "/" + "Emission" + DistribName + ".xlsx"
+    # fname_xlsx = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse  + "/" + "Emission" + cell_compartment_radionuclide + ".xlsx"
     #
     # merge_all_to_a_book(glob.glob(fname), fname_xlsx)
 
-    # fname = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse + "/" + "Emission" + DistribName + "SimID" + ".csv"
+    # fname = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse + "/" + "Emission" + cell_compartment_radionuclide + "SimID" + ".csv"
     # with open(fname, "w") as f:
     #     fileWriter = csv.writer(f, delimiter=',',lineterminator='\n')
     #     fileWriter.writerow(['SimulationID', 'TCP', 'Dose moyenne noyau', 'Incert dose moyenne noyau', 'Dose moyenne cellule', 'Incert dose moyenne cellule', 'Dose bio moyenne', 'Incert dose bio moyenne'])
     #     for w in range(0,len(SimulationId)):
     #         fileWriter.writerow([SimulationId[w], TCP_append_sur_toutes_simus_np[w], np.mean(dosen_append_sur_toutes_simus_np,axis=1)[w], np.std(dosen_append_sur_toutes_simus_np,axis=1)[w]/np.sqrt(nb_cellules_reel), np.mean(dosen_c_append_sur_toutes_simus_np,axis=1)[w], np.std(dosen_c_append_sur_toutes_simus_np,axis=1)[w]/np.sqrt(nb_cellules_reel), np.mean(Dose_Bio_append_sur_toutes_simus_np,axis=1)[w], np.std(Dose_Bio_append_sur_toutes_simus_np,axis=1)[w]/np.sqrt(nb_cellules_reel)])
     #
-    # fname_xlsx = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse + "/" + "Emission" + DistribName + "SimID" + ".xlsx"
+    # fname_xlsx = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse + "/" + "Emission" + cell_compartment_radionuclide + "SimID" + ".xlsx"
     #
     # merge_all_to_a_book(glob.glob(fname), fname_xlsx)
 
 
-    fname = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse + "/" + "Emission" + DistribName + ".xlsx"
+    fname = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse + "/" + "Emission" + cell_compartment_radionuclide + ".xlsx"
     name_columns = ['ID_Cell','Zone_Cell' ,'Survie locale', 'Incert Survie Locale','Survie globale', 'Dmoy au noyau, par simu (Gy)','Incert Dmoy au noyau par simu(Gy)','Dmoy cyto, par simu (Gy)','incert Dmoy cyto par simu (Gy)','Dmoy au noyau+cyto, par simu (Gy)','incert Dmoy noy+cyto par simu (Gy)', 'Ratio Crossfire %','Incert Ratio Crossfire %','Ratio Crossfire zone 1 %', 'Ratio Crossfire zone 2 %','Nb noyau par particule', 'Sum dose sur tous noyaux', 'Sum dose sur toutes cellules', 'Edep moy par particule dans noyau', 'Incert Edep moy par particule dans noyau', 'Nb noyaux par particule', 'Incert nb noyaux par particule' ,'TCP', 'Incert_TCP','TCP formula 2','Incert TCP formula 2','EUD','Dose bio','IncertDoseBio', "DoseSpheroid"]
     results_to_write = np.array(np.concatenate([[name_columns],np.transpose([id_cell_arr,zone_cell,surviel, incert_mean_cell_survival, survieg,dosen_tot,np.full(nb_cellules_reel,incertdmoy_n_tot),dosec_tot,np.full(nb_cellules_reel,incertdmoy_c_tot),dosen_c_tot, np.full(nb_cellules_reel,incertdmoy_n_c_tot), mean_CrossFire, incert_crossfire,np.full(nb_cellules_reel,0), np.full(nb_cellules_reel,0), np.full(nb_cellules_reel, np.full(nb_cellules_reel, np.mean(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus))), np.full(nb_cellules_reel,sum_dose_noyau), np.full(nb_cellules_reel,sum_dose_tot), np.full(nb_cellules_reel,mean_Edep_dans_noy_par_particule), np.full(nb_cellules_reel, np.std(Edep_dans_noy_par_particule_np)/np.sqrt(len(Edep_dans_noy_par_particule_np))), np.full(nb_cellules_reel, np.mean(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus)), np.full(nb_cellules_reel, np.std(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus)/np.sqrt(len(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus))),np.full(nb_cellules_reel,TCP), np.full(nb_cellules_reel, np.std(TCP_append_sur_toutes_simus_np)),np.full(nb_cellules_reel,TCP_formula2), np.full(nb_cellules_reel, np.std(TCP_test_formula_append_sur_toutes_simus_np)),np.full(nb_cellules_reel,EUD), dose_bio, np.full(nb_cellules_reel,incert_dose_bio), np.full(nb_cellules_reel,Dose_Spheroid[0])])]))
     wb = Workbook()
@@ -1141,7 +1141,7 @@ def main() :
     wb.save(fname)
 
 
-    fname = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse + "/" + "Emission" + DistribName + "SimID" + ".xlsx"
+    fname = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse + "/" + "Emission" + cell_compartment_radionuclide + "SimID" + ".xlsx"
     name_columns = ['SimulationID', 'TCP', 'Dose moyenne noyau', 'Incert dose moyenne noyau', 'Dose moyenne cellule', 'Incert dose moyenne cellule', 'Dose bio moyenne', 'Incert dose bio moyenne']
     results_to_write = np.array(np.concatenate([[name_columns],np.transpose([SimulationId, TCP_append_sur_toutes_simus_np, np.mean(dosen_append_sur_toutes_simus_np,axis=1), np.std(dosen_append_sur_toutes_simus_np,axis=1)/np.sqrt(nb_cellules_reel), np.mean(dosen_c_append_sur_toutes_simus_np,axis=1), np.std(dosen_c_append_sur_toutes_simus_np,axis=1)/np.sqrt(nb_cellules_reel), np.mean(Dose_Bio_append_sur_toutes_simus_np,axis=1), np.std(Dose_Bio_append_sur_toutes_simus_np,axis=1)/np.sqrt(nb_cellules_reel)])]))
     wb = Workbook()
@@ -1153,7 +1153,7 @@ def main() :
 
 ####################### Graph interface ####################################################
 
-global Labeling_Percentage
+global labeling_percentage
 global Labeling_Percentage_Entry
 
 window = tkinter.Tk()
@@ -1162,18 +1162,18 @@ window.geometry("1000x500")
 StudyType_Txt = tkinter.Label(window, text = "Type of study :", fg='red')
 StudyType_Txt.place (x=100, y=50)
 
-Labeling_Percentage = tkinter.Label(window, text="Labeling percentage : ", fg='blue')
+labeling_percentage = tkinter.Label(window, text="Labeling percentage : ", fg='blue')
 Labeling_Percentage_Entry = tkinter.Entry(window, width=35)
 
 def if_internalization_study():
-    if Labeling_Percentage.winfo_exists():
-        Labeling_Percentage.destroy()
+    if labeling_percentage.winfo_exists():
+        labeling_percentage.destroy()
     if Labeling_Percentage_Entry.winfo_exists():
         Labeling_Percentage_Entry.destroy()
-    global DistribName_Txt
+    global cell_compartment_radionuclide_Txt
     global distrib_name_cb
-    DistribName_Txt = tkinter.Label(window, text="Intra cellular distribution name :", fg='blue')
-    DistribName_Txt.place(x=100, y=100)
+    cell_compartment_radionuclide_Txt = tkinter.Label(window, text="Intra cellular distribution name :", fg='blue')
+    cell_compartment_radionuclide_Txt.place(x=100, y=100)
     selected_distrib_name = tkinter.StringVar()
     distrib_name_cb = tkinter.ttk.Combobox(window, width=35, textvariable=selected_distrib_name)
     distrib_name_cb['values'] = ['Membrane', 'Cytoplasm', 'Homogeneous', 'Nucleus']
@@ -1181,25 +1181,25 @@ def if_internalization_study():
 
 
 def if_labeling_study() :
-    if DistribName_Txt.winfo_exists():
-        DistribName_Txt.destroy()
+    if cell_compartment_radionuclide_Txt.winfo_exists():
+        cell_compartment_radionuclide_Txt.destroy()
     if distrib_name_cb.winfo_exists():
         distrib_name_cb.destroy()
-    Labeling_Percentage = tkinter.Label(window, text="Labeling percentage : ", fg='blue')
-    Labeling_Percentage.place(x=100, y=100)
+    labeling_percentage = tkinter.Label(window, text="Labeling percentage : ", fg='blue')
+    labeling_percentage.place(x=100, y=100)
     Labeling_Percentage_Entry = tkinter.Entry(window, width=35)
     Labeling_Percentage_Entry.place(x=400, y=100)
 
 
-radioValue_studyType=tkinter.IntVar()
-radioValue_studyType.set(0)
-r1=tkinter.Radiobutton(window, text="Internalization", variable=radioValue_studyType,value=0,command=if_internalization_study)
-r2=tkinter.Radiobutton(window, text="Labeling", variable=radioValue_studyType,value=1, command=if_labeling_study)
+radiovalue_study_type=tkinter.IntVar()
+radiovalue_study_type.set(0)
+r1=tkinter.Radiobutton(window, text="Internalization", variable=radiovalue_study_type,value=0,command=if_internalization_study)
+r2=tkinter.Radiobutton(window, text="Labeling", variable=radiovalue_study_type,value=1, command=if_labeling_study)
 r1.place(x=390,y=50)
 r2.place(x=590, y=50)
 
-DistribName_Txt = tkinter.Label(window, text="Intra cellular distribution name :", fg='blue')
-DistribName_Txt.place(x=100, y=100)
+cell_compartment_radionuclide_Txt = tkinter.Label(window, text="Intra cellular distribution name :", fg='blue')
+cell_compartment_radionuclide_Txt.place(x=100, y=100)
 selected_distrib_name = tkinter.StringVar()
 distrib_name_cb = tkinter.ttk.Combobox(window, width=35 , textvariable=selected_distrib_name)
 distrib_name_cb['values'] = ['Membrane', 'Cytoplasm', 'Homogeneous', 'Nucleus']
@@ -1207,41 +1207,41 @@ distrib_name_cb.current(0)
 distrib_name_cb.place(x=400, y=100)
 
 
-GeomName_Txt = tkinter.Label(window, text = "Geometry name :", fg='blue')
-GeomName_Txt.place (x=100, y=150)
+geom_name_txt = tkinter.Label(window, text = "Geometry name :", fg='blue')
+geom_name_txt.place (x=100, y=150)
 selected_geom = tkinter.StringVar()
 geom_cb = tkinter.ttk.Combobox(window, width=35 , textvariable=selected_geom)
 geom_cb['values'] = ["30µmRadius Spheroid, 75 % cell packing", "50µmRadius Spheroid, 75 % cell packing", "70µmRadius Spheroid, 75 % cell packing", "160µmRadius Spheroid, 75 % cell packing" ,"95µmRadius Spheroid, 25 % cell packing", "95µmRadius Spheroid, 50 % cell packing", "95µmRadius Spheroid, 75 % cell packing", "95µmRadius Spheroid, 75 % cell packing 2", "100µmRadius Spheroid, 40 % cell packing"]
 geom_cb.place(x=400, y=150)
 
 
-RadionuclideName_Txt = tkinter.Label(window, text = "Radionuclide used :", fg='blue')
-RadionuclideName_Txt.place (x=100, y=200)
-RadionuclideName_Entry = tkinter.Entry(window, width=35)
-RadionuclideName_Entry.insert(tkinter.END, "At211")
-RadionuclideName_Entry.place(x=400, y=200)
+radionuclide_name_txt = tkinter.Label(window, text = "Radionuclide used :", fg='blue')
+radionuclide_name_txt.place (x=100, y=200)
+radionuclide_name_entry = tkinter.Entry(window, width=35)
+radionuclide_name_entry.insert(tkinter.END, "At211")
+radionuclide_name_entry.place(x=400, y=200)
 
-NbSimulations_Txt = tkinter.Label(window, text = "Number of simulations to analyse :", fg='blue')
-NbSimulations_Txt.place (x=100, y=250)
-NbSimulations_Entry = tkinter.Entry(window, width=35)
-NbSimulations_Entry.insert(tkinter.END, "20")
-NbSimulations_Entry.place(x=400, y=250)
+nb_simulations_txt = tkinter.Label(window, text = "Number of simulations to analyse :", fg='blue')
+nb_simulations_txt.place (x=100, y=250)
+nb_simulations_entry = tkinter.Entry(window, width=35)
+nb_simulations_entry.insert(tkinter.END, "20")
+nb_simulations_entry.place(x=400, y=250)
 
-Diffusion_Txt = tkinter.Label(window, text = "Daughter diffusion :", fg='blue')
-Diffusion_Txt.place (x=100, y=300)
+diffusion_txt = tkinter.Label(window, text = "Daughter diffusion :", fg='blue')
+diffusion_txt.place (x=100, y=300)
 diffusion_choice = tkinter.StringVar()
-Diffusion_List = tkinter.ttk.Combobox(window, width=35, textvariable=diffusion_choice)
-Diffusion_List['values'] = ["Yes", "No"]
-Diffusion_List.current(1)
-Diffusion_List.place(x=400, y=300)
+diffusion_list = tkinter.ttk.Combobox(window, width=35, textvariable=diffusion_choice)
+diffusion_list['values'] = ["Yes", "No"]
+diffusion_list.current(1)
+diffusion_list.place(x=400, y=300)
 
-Number_Particles_PerCell_Txt = tkinter.Label(window, text = "Number of alpha particles per cell :", fg='blue')
-Number_Particles_PerCell_Txt.place (x=100, y=350)
-number_Particles_PerCell_choice = tkinter.StringVar()
-Number_Particles_PerCell_List = tkinter.ttk.Combobox(window, width=35, textvariable=number_Particles_PerCell_choice)
-Number_Particles_PerCell_List['values'] = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "42"]
-Number_Particles_PerCell_List.current(0)
-Number_Particles_PerCell_List.place(x=400, y=350)
+number_particles_per_cell_txt = tkinter.Label(window, text = "Number of alpha particles per cell :", fg='blue')
+number_particles_per_cell_txt.place(x=100, y=350)
+number_particles_per_cell_choice = tkinter.StringVar()
+number_particles_per_cell_list = tkinter.ttk.Combobox(window, width=35, textvariable=number_particles_per_cell_choice)
+number_particles_per_cell_list['values'] = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "42"]
+number_particles_per_cell_list.current(0)
+number_particles_per_cell_list.place(x=400, y=350)
 
 
 
