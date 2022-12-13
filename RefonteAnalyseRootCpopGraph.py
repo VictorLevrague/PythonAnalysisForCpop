@@ -34,16 +34,72 @@ warnings.filterwarnings("error")
 
 KEV_IN_J = 1.60218 * 1e-16
 WATER_DENSITY = 1e-3  # 10-3 kg/cm³
-UNIT_COEFFICIENT  = (KEV_IN_J / (WATER_DENSITY * (1e-4)))
+UNIT_COEFFICIENT = (KEV_IN_J / (WATER_DENSITY * (1e-4)))
+
+print(UNIT_COEFFICIENT)
+
+SIG0 = [49*np.pi, 24.01*np.pi, 34.81*np.pi] #From Mario calculations
+A_CST = 0.1602 #Gy μm3 keV−1
+energies_valid_for_alpha_beta_approximation = np.arange(200,90001)
+
+radius_cell_line = 7 * 1e-4  # Rayon du noyau de la lignée HSG
+surface_centerslice_cell_line = math.pi * radius_cell_line ** 2
+length_of_cylinderlike_cell = 1
+
+Y0 = [0.06072969, 0.02562553, 0.03934994]
+A = [-0.18385472, -0.10426184, -0.11163773]
+W = [3.05093045, 2.87758559, 3.20398251]
+XC = [0.46545609, 0.38084839, 0.48452192]
+BETAG = [0.0961, 0.0405, 0.0625]  # constante de Monini et al. 2019
 
 bins = 200
-start_time1 = time.time()
+START_TIME = time.time()
 
 np.set_printoptions(threshold=sys.maxsize)
 #np.set_printoptions(threshold = False)
 
 global available_data
 
+
+def conversion_energy_in_let(data_base, energy):
+    """
+    Returns a function that converts an input energy into the corresponding LET from a given data base
+
+    Input
+    -------
+    data_base in string
+    energy in keV
+
+    """
+
+    TABLES_CONVERSION_ENERGY_IN_LET = pandas.read_excel("E_TEL/conversion_tables_" + data_base +".xlsx").to_records()
+    print("E_TEL/conversion_tables_" + data_base +".xlsx")
+    ENERGY_LIST = TABLES_CONVERSION_ENERGY_IN_LET['E(keV)']
+    CORRESPONDING_LET_LIST = TABLES_CONVERSION_ENERGY_IN_LET['LET(keV/um)']
+    continuous_function_to_convert_energy_in_let = interpolate.interp1d(ENERGY_LIST, CORRESPONDING_LET_LIST, fill_value="extrapolate", kind= "linear")
+
+    return continuous_function_to_convert_energy_in_let(energy)
+
+def beta_nanox(E,type_cell): #E in MeV/nucleon
+    return Y0[type_cell] + (A[type_cell]/(2*np.pi))*(W[type_cell]/(((E-XC[type_cell])**2)+(W[type_cell]**2)/4))
+
+def alpha_nanox(E,type_cell):
+    conv_LET_E_SRIM = conversion_energy_in_let("SRIM", E)
+    b = BETAG[type_cell] * (((A_CST * conv_LET_E_SRIM * 0.8)/SIG0[type_cell]) ** 2)
+    return ((SIG0[type_cell] +((A_CST * conv_LET_E_SRIM * (b-1))*np.sqrt(beta_nanox(E/4000,type_cell)/(b+(b*b)/2))))/(A_CST * conv_LET_E_SRIM))
+
+
+def dn1_dE_continous():
+    conversion_energy_in_let_srim_alpha_beta_approximation_range = \
+        conversion_energy_in_let("SRIM", energies_valid_for_alpha_beta_approximation)
+    conversion_energy_in_let_g4_alpha_beta_approximation_range = \
+        conversion_energy_in_let("G4", energies_valid_for_alpha_beta_approximation)
+    dn1_dE = -np.log(1 - alpha_nanox(energies_valid_for_alpha_beta_approximation,0) \
+                     * UNIT_COEFFICIENT*conversion_energy_in_let_srim_alpha_beta_approximation_range \
+                     / surface_centerslice_cell_line) \
+                     / (length_of_cylinderlike_cell * conversion_energy_in_let_g4_alpha_beta_approximation_range) #calculation of number of lethal events per keV, via Mario's approximations
+    dn1_dE_interpolated = interpolate.interp1d(energies_valid_for_alpha_beta_approximation, dn1_dE, fill_value="extrapolate", kind="linear")
+    return dn1_dE_interpolated
 
 def count_number_of_cells_in_xml_file(xml_filename):
     file = minidom.parse(xml_filename)
@@ -56,6 +112,17 @@ def count_number_of_cells_in_xml_file(xml_filename):
             x = a.firstChild.data
             nb_x += 1
     return(nb_x)
+
+
+    def subset_sorted_array(A,B):
+        """
+        Removes elements of A sorted array that are contained in B
+        """
+        Aa = A[np.where(A <= np.max(B))]
+        Bb = (B[np.searchsorted(B,Aa)] !=  Aa)
+        Bb = np.pad(Bb,(0,A.shape[0]-Aa.shape[0]), mode='constant', constant_values=True)
+        return A[Bb]
+
 #
 # def cell_Survival_calculations():
 #
@@ -82,7 +149,7 @@ def open_available_data_window():
     nom_config = (geom_list[geom_cb.current()])  # Les fichiers contenant les masses de toutes les cellules, et ceux des ID de cellules supprimés de CPOP à G4, sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
     global spheroid_compaction
     # cp = (cp_list[geom_cb.current()])
-    cp = geom_list[geom_cb.current()][8:10]
+    spheroid_compaction = geom_list[geom_cb.current()][8:10]
     print("spheroid_compaction : ", spheroid_compaction)
 
     global xml_geom
@@ -206,87 +273,33 @@ def main() :
     histo_edep_noy_par_p = 0 # mettre 1 affiche l'histogramme de l'énergie moyenne déposée par particule dans un noyau quand elle y rentre
 
 
-    ######################## Tables Conversion E en LET ########################################
-
-    LETG4 = pandas.read_excel("E_TEL/He_G4.xlsx").to_records()
-    E = LETG4['E(keV)']
-    LET = LETG4['LET(keV/um)']
-    interp_He_LETG4_E = interpolate.interp1d(E, LET, fill_value="extrapolate", kind= "linear") #Conversion continue de E en LET de Geant4, pas utilisée dans le code avec les corrections sur dn1/dE
-
-    LET_SRIM_File = pandas.read_excel("E_TEL/He_TEL_SRIM.xlsx").to_records()
-    E_SRIM = LET_SRIM_File['E(keV)']
-    LET_SRIM = LET_SRIM_File['LET(keV/um)']
-    interp_He_LETSRIM_As_Function_Of_E = interpolate.interp1d(E_SRIM, LET_SRIM, fill_value="extrapolate", kind= "linear")
-
-    data_He = pandas.read_excel("Tables/AlphaBetaHeG4.ods").to_records()
-    LETG4_He = data_He['LET G4'] #Conversion discrète de E en LET de Geant4
-    LETYasmine_He= data_He['LET'] #LET utilisés par Yasmine dans la table qu'elle nous a fournie
-    xE_He = data_He['E(keV)'] #keV
-    ya_He = data_He['Alpha'] #Coefficients alpha calculés par NanOx [Gy-1]
-    yb_He = data_He['Beta']  #Coefficients alpha calculés par NanOx [Gy-2]
-    interp_He_LETG4_As_Function_Of_E = interpolate.interp1d(xE_He, LETG4_He, fill_value="extrapolate", kind= "linear")
-
-    y0=[0.06072969,0.02562553,0.03934994]
-    A=[-0.18385472,-0.10426184,-0.11163773]
-    W=[3.05093045,2.87758559,3.20398251]
-    xc=[0.46545609,0.38084839,0.48452192]
-    betag = [0.0961, 0.0405, 0.0625]  # constante de Monini et al. 2019
-
-    def beta(E,type_cell): #E en MeV/nucléon
-        return y0[type_cell] + (A[type_cell]/(2*np.pi))*(W[type_cell]/(((E-xc[type_cell])**2)+(W[type_cell]**2)/4));
-
-    sig0=[49*np.pi,24.01*np.pi,34.81*np.pi]
-    a_cst=0.1602 #Gy μm3 keV−1
-    #E_Valide_Approx_Alpha_Beta=LET_SRIM_File['E_valide(keV)']
-    E_Valide_Approx_Alpha_Beta=np.arange(200,90001)
-
-    def alpha(E,type_cell):
-        conv_LET_E_SRIM=interp_He_LETSRIM_As_Function_Of_E(E)
-        b = betag[type_cell] * (((a_cst * conv_LET_E_SRIM * 0.8)/sig0[type_cell]) ** 2)
-        return ((sig0[type_cell] +((a_cst * conv_LET_E_SRIM * (b-1))*np.sqrt(beta(E/4000,type_cell)/(b+(b*b)/2))))/(a_cst * conv_LET_E_SRIM)) ;
-
 
     ######################## Conversion des alpha en dn1/dE ########################################
 
-    r = 7*1e-4 #Rayon du noyau de la lignée HSG
-    S = math.pi*r**2
-    l = 1
-
-    conv_LET_E_SRIM_Valide_Approx_Alpha_Beta = interp_He_LETSRIM_As_Function_Of_E(E_Valide_Approx_Alpha_Beta)
-    conv_LET_E_G4_Valide_Approx_Alpha_Beta = interp_He_LETG4_As_Function_Of_E(E_Valide_Approx_Alpha_Beta)
-    dn1_dE = -np.log(1 - alpha(E_Valide_Approx_Alpha_Beta,0)*UNIT_COEFFICIENT*conv_LET_E_SRIM_Valide_Approx_Alpha_Beta/S) / (l * conv_LET_E_G4_Valide_Approx_Alpha_Beta) #calcul nombre d'évènements létaux par keV, via l'approximation d'alpha de Mario
-
-    dn1_dE_int = interpolate.interp1d(E_Valide_Approx_Alpha_Beta, dn1_dE, fill_value="extrapolate", kind="linear") #Conversion continue de E en dn1/dE
-
+    dn1_dE_continous_pre_calculated = dn1_dE_continous()
 
     ##################### Gestion des ID de CPOP ##################################################
 
 
-    txt_ID_Deleted_Cells="Cpop_Deleted_Cells_ID_Txt/" + "IDCell_" + nom_config + ".txt"
+    txt_id_deleted_cells = "Cpop_Deleted_Cells_ID_Txt/" + "IDCell_" + nom_config + ".txt"
 
-    def subset_sorted_array(A,B):
-        Aa = A[np.where(A <= np.max(B))]
-        Bb = (B[np.searchsorted(B,Aa)] !=  Aa)
-        Bb = np.pad(Bb,(0,A.shape[0]-Aa.shape[0]), mode='constant', constant_values=True)
-        return A[Bb]
-
-    test_file_not_empty = os.stat(txt_ID_Deleted_Cells).st_size
+    test_file_not_empty = os.stat(txt_id_deleted_cells).st_size
 
     if test_file_not_empty != 0:
-        DeletedID_Txt = np.loadtxt(txt_ID_Deleted_Cells)
-        DeletedID_Txt = np.unique(DeletedID_Txt)
+        deleted_iD_txt = np.loadtxt(txt_id_deleted_cells)
+        deleted_iD_txt = np.unique(deleted_iD_txt)
 
-    DeletedID_Txt = np.sort(DeletedID_Txt)
+    deleted_iD_txt = np.sort(deleted_iD_txt)
 
-    # print("len deleted id = ", len(DeletedID_Txt))
-    # print("deleted id = ", DeletedID_Txt)
+    # print("len deleted id = ", len(deleted_iD_txt))
+    # print("deleted id = ", deleted_iD_txt)
 
     Real_ID_Cells = np.arange(3,nb_cellules_xml+3)  # Dans les fichiers .xml de géométrie cellulaire générés par CPOP, les indices des cellules commencent à 3
 
     # print("len real id cells 1 = ", len(Real_ID_Cells))
 
     if test_file_not_empty != 0:
-        Real_ID_Cells = subset_sorted_array(Real_ID_Cells,DeletedID_Txt)
+        Real_ID_Cells = subset_sorted_array(Real_ID_Cells,deleted_iD_txt)
         # print("len real id cells 2 = ", len(Real_ID_Cells))
         # print("real id cells = ", Real_ID_Cells)
         # print("len unique real id cells", len(np.unique(Real_ID_Cells)))
@@ -665,7 +678,7 @@ def main() :
                 for ind_dose in range(0, nb_division_pack_cellules):
                     elements_To_Remove = []
                     for ind_modif_id in range(0, len(data_EdepCell[ind_dose])):
-                        if (((data_EdepCell[ind_dose])[ind_modif_id]["ID_Cell"]) in DeletedID_Txt):
+                        if (((data_EdepCell[ind_dose])[ind_modif_id]["ID_Cell"]) in deleted_iD_txt):
                             # elements_To_Remove.append((data_EdepCell[ind_dose])[ind_modif_id])
                             elements_To_Remove.append(ind_modif_id)
                     data_EdepCell[ind_dose] = np.delete(data_EdepCell[ind_dose], elements_To_Remove, 0)
@@ -697,10 +710,10 @@ def main() :
             f_He  = np.zeros(bins)
 
             pas=He[1][1]-He[1][0]
-            f_He[0]=pas*dn1_dE_int(LET_He[0])
+            f_He[0]=pas*dn1_dE_continous_pre_calculated(LET_He[0])
             for j in range(1,bins):
             # Calcul de la primitive de dn1/dE
-                f_He[j]=f_He[j-1] + pas*dn1_dE_int(E_He[j])
+                f_He[j]=f_He[j-1] + pas*dn1_dE_continous_pre_calculated(E_He[j])
 
             n1=interpolate.interp1d(E_He, f_He, fill_value="extrapolate", kind= "linear") #fonction primitive continue en fonction de E
 
@@ -886,7 +899,7 @@ def main() :
         TCP_append_sur_toutes_simus.append(TCP_une_simu)
         TCP_test_formula_append_sur_toutes_simus.append(TCP_test_formula)
 
-        survieg_append_sur_une_simu=np.exp(-n_unique_tot_sur_une_simu - betag[type_cell] * (dosen_append_sur_une_simu_np ** 2))
+        survieg_append_sur_une_simu=np.exp(-n_unique_tot_sur_une_simu - BETAG[type_cell] * (dosen_append_sur_une_simu_np ** 2))
         survieg_append_sur_toutes_simus.append(survieg_append_sur_une_simu)
 
 
@@ -1148,7 +1161,7 @@ def main() :
     wb.new_sheet("AnalysisResults_SimID", data=results_to_write)
     wb.save(fname)
 
-    print(" Temps total =  ", (time.time() - start_time1)//60, "minutes", (time.time() - start_time1)%60, "secondes")
+    print(" Temps total =  ", (time.time() - START_TIME)//60, "minutes", (time.time() - START_TIME)%60, "secondes")
 
 
 ####################### Graph interface ####################################################
