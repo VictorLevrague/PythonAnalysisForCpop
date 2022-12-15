@@ -21,6 +21,7 @@ import numpy as np
 import os
 import pandas
 from pyexcelerate import Workbook
+import scipy.integrate
 import scipy.interpolate as interpolate
 import sys
 import time
@@ -42,6 +43,8 @@ SIG0 = [49*np.pi, 24.01*np.pi, 34.81*np.pi] #From Mario calculations
 A_CST = 0.1602 #Gy μm3 keV−1
 energies_valid_for_alpha_beta_approximation = np.arange(200,90001)
 
+Emax=8000 #Energie max des ions Hélium émis, en keV
+
 radius_cell_line = 7 * 1e-4  # Rayon du noyau de la lignée HSG
 surface_centerslice_cell_line = math.pi * radius_cell_line ** 2
 length_of_cylinderlike_cell = 1
@@ -61,13 +64,16 @@ np.set_printoptions(threshold=sys.maxsize)
 global available_data
 
 
+def column(matrix, i):
+    return [row[i] for row in matrix]
+
 def conversion_energy_in_let(data_base, energy):
     """
     Returns a function that converts an input energy into the corresponding LET from a given data base
 
     Input
     -------
-    data_base in string
+    data_base in string format
     energy in keV
 
     """
@@ -101,6 +107,55 @@ def dn1_dE_continous():
     dn1_dE_interpolated = interpolate.interp1d(energies_valid_for_alpha_beta_approximation, dn1_dE, fill_value="extrapolate", kind="linear")
     return dn1_dE_interpolated
 
+
+def number_of_lethal_events_for_alpha_traversals(dn1_dE_function):
+    """
+    Returns the function that converts an energy E into the cumulated number of lethal damage from 0 to E
+    """
+    energie_table_binned = np.linspace(0, Emax, num=bins)
+    f_He_cumulative_int = scipy.integrate.cumtrapz(dn1_dE_function(energie_table_binned),
+                                             energie_table_binned, initial=0)
+    n1 = interpolate.interp1d(energie_table_binned, f_He_cumulative_int, fill_value="extrapolate",
+                              kind="linear")  # fonction primitive continue en fonction de E
+    return n1
+
+def cpop_real_cell_id_determination(file_with_deleted_cell_id_in_cpop, nb_cellules_xml):
+    """
+    When geometry is generated in CPOP, cell ids are between 3 and nb_cells+3.
+    But, cells are removed during the cell overlap mangement,
+    hence, the associated cell ids don't exist anymore.
+
+    Returns
+    ------
+    a sorted array with the cell ids that exist in the geometry
+    a test for the validity of the txt file for deleted ids
+    a sorted array with the deleted cells ids
+    """
+    test_file_not_empty = os.stat(file_with_deleted_cell_id_in_cpop).st_size
+    if test_file_not_empty != 0:
+        deleted_id_txt = np.loadtxt(file_with_deleted_cell_id_in_cpop)
+        deleted_id_txt = np.unique(deleted_id_txt)
+        deleted_id_txt = np.sort(deleted_id_txt)
+    real_id_cells = np.arange(3,nb_cellules_xml+3)
+    if test_file_not_empty != 0:
+        real_id_cells = subset_sorted_array(real_id_cells,deleted_id_txt)
+    return(real_id_cells, test_file_not_empty, deleted_id_txt)
+
+def masses_cells_reading(txt_file_with_masses_cells):
+    masses_cells_txt_numpy = np.loadtxt(txt_file_with_masses_cells, dtype={'names': ('masse_noyau', 'unit1', 'masse_cell', 'unit2'),
+                                                    'formats': (float, '|S15', float, '|S15')})
+    masses_nuclei = (column(masses_cells_txt_numpy,0))
+    masses_nuclei = np.array(masses_nuclei) * 10**(-6) #conversion in kg
+    masses_cells = (column(masses_cells_txt_numpy,2))
+    masses_cells = np.array(masses_cells) * 10 ** (-6)  #conversion in kg
+    masses_cytoplasms = masses_cells - masses_nuclei  #kg
+    return(masses_cytoplasms, masses_nuclei, masses_cells)
+
+def positions_cells_reading(xml_file_with_cells_positions):
+    cells_positions_xml_opened = minidom.parse(xml_file_with_cells_positions)
+    cells_positions_xml_opened_with_cell_tag = cells_positions_xml_opened.getElementsByTagName('CELL')
+
+
 def count_number_of_cells_in_xml_file(xml_filename):
     file = minidom.parse(xml_filename)
     cell = file.getElementsByTagName('CELL')
@@ -114,19 +169,15 @@ def count_number_of_cells_in_xml_file(xml_filename):
     return(nb_x)
 
 
-    def subset_sorted_array(A,B):
-        """
-        Removes elements of A sorted array that are contained in B
-        """
-        Aa = A[np.where(A <= np.max(B))]
-        Bb = (B[np.searchsorted(B,Aa)] !=  Aa)
-        Bb = np.pad(Bb,(0,A.shape[0]-Aa.shape[0]), mode='constant', constant_values=True)
-        return A[Bb]
+def subset_sorted_array(A,B):
+    """
+    Removes elements of A sorted array that are contained in B
+    """
+    Aa = A[np.where(A <= np.max(B))]
+    Bb = (B[np.searchsorted(B,Aa)] !=  Aa)
+    Bb = np.pad(Bb,(0,A.shape[0]-Aa.shape[0]), mode='constant', constant_values=True)
+    return A[Bb]
 
-#
-# def cell_Survival_calculations():
-#
-#
 
 
 def open_available_data_window():
@@ -262,7 +313,7 @@ def main() :
 
     ########################### Paramètres optionnels ######################################
 
-    Emax=8000 #Energie max des ions Hélium émis, en keV
+    # Emax=8000 #Energie max des ions Hélium émis, en keV
 
     type_cell = 0 # 0=HSG, 1=V79, 2=CHO-K1, sert pour le calcul de survie cellulaire
 
@@ -283,67 +334,35 @@ def main() :
 
     txt_id_deleted_cells = "Cpop_Deleted_Cells_ID_Txt/" + "IDCell_" + nom_config + ".txt"
 
-    test_file_not_empty = os.stat(txt_id_deleted_cells).st_size
+    real_id_cells = cpop_real_cell_id_determination(txt_id_deleted_cells, nb_cellules_xml)[0]
+    test_file_not_empty = cpop_real_cell_id_determination(txt_id_deleted_cells, nb_cellules_xml)[1]
+    deleted_id_txt = cpop_real_cell_id_determination(txt_id_deleted_cells, nb_cellules_xml)[2]
 
-    if test_file_not_empty != 0:
-        deleted_iD_txt = np.loadtxt(txt_id_deleted_cells)
-        deleted_iD_txt = np.unique(deleted_iD_txt)
-
-    deleted_iD_txt = np.sort(deleted_iD_txt)
-
-    # print("len deleted id = ", len(deleted_iD_txt))
-    # print("deleted id = ", deleted_iD_txt)
-
-    Real_ID_Cells = np.arange(3,nb_cellules_xml+3)  # Dans les fichiers .xml de géométrie cellulaire générés par CPOP, les indices des cellules commencent à 3
-
-    # print("len real id cells 1 = ", len(Real_ID_Cells))
-
-    if test_file_not_empty != 0:
-        Real_ID_Cells = subset_sorted_array(Real_ID_Cells,deleted_iD_txt)
-        # print("len real id cells 2 = ", len(Real_ID_Cells))
-        # print("real id cells = ", Real_ID_Cells)
-        # print("len unique real id cells", len(np.unique(Real_ID_Cells)))
-
-    nb_cellules_reel = len(Real_ID_Cells)
+    nb_cellules_reel = len(real_id_cells)
 
     print("nb_cellules_reel : ", nb_cellules_reel)
 
     Perfect_ID_Cells = np.arange(0,nb_cellules_reel)
-
-    # print("len Perfect_ID_Cells = ", len(Perfect_ID_Cells))
-
-    # print(Real_ID_Cells)
 
 
     ###################### Lecture Geométrie #####################################
 
     ###### Masses #######
 
-    txt_masse="Cpop_Masse_Txt/" + "MassesCell_" + nom_config + ".txt"
-    Masse_Cell_Txt=np.loadtxt(txt_masse, dtype={'names': ('masse_noyau', 'unit1', 'masse_cell', 'unit2'), 'formats': (float, '|S15', float, '|S15')})
+    txt_cells_masses="Cpop_Masse_Txt/" + "MassesCell_" + nom_config + ".txt"
 
-    def column(matrix, i):
-        return [row[i] for row in matrix]
-
-    masse_nucleus= (column(Masse_Cell_Txt,0))
-    masse_cell = (column(Masse_Cell_Txt,2))
-
-    masse_nucleus=np.array(masse_nucleus) * 10**(-6) #en kg
-    masse_cell=np.array(masse_cell) * 10**(-6) #en kg
-    masse_cyto = masse_cell - masse_nucleus #en kg
+    masses_cytoplasms, masses_nuclei, masses_cells = masses_cells_reading(txt_cells_masses)
 
     r_tum = float(r_sph) * 10**(-6) #en mètres
     masse_tum=((4/3)*np.pi*r_tum**3)*1000 #en kg
 
     # print("masse_tum = ", masse_tum)
 
-    print("cell_packing = ", sum(masse_cell)/masse_tum)
+    print("cell_packing = ", sum(masses_cells)/masse_tum)
     print("masse_tum = ", masse_tum)
-    print("masse_cell = ", masse_cell[0])
 
     ###### Positions ######
 
-    # xml_geom = "Cpop_Geom_XML/" + nom_config + ".cfg" + ".xml"
     xml_geom_ouvert = minidom.parse(xml_geom)
     cell_xml = xml_geom_ouvert.getElementsByTagName('CELL')
 
@@ -379,7 +398,7 @@ def main() :
     indices_à_supprimer = []
 
     for coo_et_id_cellule in positions_et_id:
-        if not ((coo_et_id_cellule[3] in Real_ID_Cells)):
+        if not ((coo_et_id_cellule[3] in real_id_cells)):
             indices_à_supprimer.append(indice_cellule)
         indice_cellule += 1
 
@@ -627,49 +646,20 @@ def main() :
             print(" data avec Ei < Ef : ", data_alpha[np.where(data_alpha["Ei"] < data_alpha["Ef"])])
 
             print()
-            # print(" data alpha id 3 ", data_alpha[np.where(data_alpha["Cellule_D_Emission"]==3)])
-            # print()
 
             ####################### Modification des ID de CPOP ###################################
 
             ################ data_alpha #########################################
 
             print("len(data_alpha) = ",  len(data_alpha))
-            # print("data_alpha[ind_modif_id] = ", data_alpha[0:10000])
-
-            # if (i == 0):
-            #     print("data_alpha[ind_modif_id] = ", np.sort(data_alpha)[0:10000])
-            #print("data_alpha[ind_modif_id][Cellule_D_Emission] = ", np.sort(data_alpha["Cellule_D_Emission"])[0:10000])
-
-            # print("Before id correction")
-            # print("np.unique(data_alpha[Cellule_D_Emission)", np.sort(np.unique(data_alpha["Cellule_D_Emission"])))
-            # print("len(np.unique(data_alpha[Cellule_D_Emission)",len(np.unique(data_alpha["Cellule_D_Emission"])))
-
-            # print("Real_ID_Cells : ",Real_ID_Cells)
-            # print("len(Real_ID_Cells)", len(Real_ID_Cells))
 
             for ind_modif_id in range(0,len(data_alpha)):
-                index_ID_Cell = np.where(Real_ID_Cells == data_alpha[ind_modif_id]["ID_Cell"])
-                # print("index_ID_Cell",index_ID_Cell)
-                # print("len index_ID_Cell", len(index_ID_Cell))
-                # print("len Perfect cell ID", len(Perfect_ID_Cells))
-                # print()
+                index_ID_Cell = np.where(real_id_cells == data_alpha[ind_modif_id]["ID_Cell"])
                 data_alpha[ind_modif_id]["ID_Cell"] = Perfect_ID_Cells[index_ID_Cell]
 
-                index_Cellule_D_Emission = np.where(Real_ID_Cells == data_alpha[ind_modif_id]["Cellule_D_Emission"])
-                # print("Real_ID_Cells", Real_ID_Cells[0:100])
-                # print("data_alpha[Cellule_D_Emission]", (data_alpha["Cellule_D_Emission"])[0:100])
-                # print("index_Cellule_D_Emission", index_Cellule_D_Emission)
-                # if (i==2):
-                # print("data_alpha[Cellule_D_Emission] = ", np.sort(data_alpha["Cellule_D_Emission"])[0:10000])
-                # print("index_Cellule_D_Emission", index_Cellule_D_Emission)
-                #print("data_alpha[ind_modif_id][Cellule_D_Emission]" ,data_alpha[ind_modif_id]["Cellule_D_Emission"])
+                index_Cellule_D_Emission = np.where(real_id_cells == data_alpha[ind_modif_id]["Cellule_D_Emission"])
                 data_alpha[ind_modif_id]["Cellule_D_Emission"] = Perfect_ID_Cells[index_Cellule_D_Emission]
 
-            # if (i == 0):
-            #     print("data_alpha[ind_modif_id][Cellule_D_Emission] = ", np.sort(data_alpha["Cellule_D_Emission"]))
-            #     # print("data_alpha[ind_modif_id] = ", np.sort(data_alpha)[0:10000])
-            #     print("index_Cellule_D_Emission", index_Cellule_D_Emission)
 
             ################ data_EdepCell ######################################
 
@@ -678,22 +668,15 @@ def main() :
                 for ind_dose in range(0, nb_division_pack_cellules):
                     elements_To_Remove = []
                     for ind_modif_id in range(0, len(data_EdepCell[ind_dose])):
-                        if (((data_EdepCell[ind_dose])[ind_modif_id]["ID_Cell"]) in deleted_iD_txt):
+                        if (((data_EdepCell[ind_dose])[ind_modif_id]["ID_Cell"]) in deleted_id_txt):
                             # elements_To_Remove.append((data_EdepCell[ind_dose])[ind_modif_id])
                             elements_To_Remove.append(ind_modif_id)
                     data_EdepCell[ind_dose] = np.delete(data_EdepCell[ind_dose], elements_To_Remove, 0)
 
             for ind_dose in range(0, nb_division_pack_cellules):
                 for ind_modif_id in range(0,len(data_EdepCell[ind_dose])):
-                    index_ID_Cell = np.where(Real_ID_Cells == (data_EdepCell[ind_dose])[ind_modif_id]["ID_Cell"])
+                    index_ID_Cell = np.where(real_id_cells == (data_EdepCell[ind_dose])[ind_modif_id]["ID_Cell"])
                     (data_EdepCell[ind_dose])[ind_modif_id]["ID_Cell"] = Perfect_ID_Cells[index_ID_Cell]
-
-
-            # print("After id correction")
-            # print("np.unique(data_alpha[Cellule_D_Emission)", np.sort(np.unique(data_alpha["Cellule_D_Emission"])))
-            # print("len(np.unique(data_alpha[Cellule_D_Emission)",len(np.unique(data_alpha["Cellule_D_Emission"])))
-
-            # print("subset", subset_sorted_array(Perfect_ID_Cells,np.unique(data_alpha["Cellule_D_Emission"])))
 
             ####################### Histo d'énergie ########################################################
 
@@ -707,15 +690,22 @@ def main() :
                 E_He[k] = (He[1][k] + He[1][k + 1]) / 2.
 
             ################################################################################################
-            f_He  = np.zeros(bins)
+            # f_He  = np.zeros(bins)
+            #
+            # pas=He[1][1]-He[1][0]
+            # f_He[0]=pas*dn1_dE_continous_pre_calculated(LET_He[0])
+            # for j in range(1,bins):
+            # # Calcul de la primitive de dn1/dE
+            #     f_He[j]=f_He[j-1] + pas*dn1_dE_continous_pre_calculated(E_He[j])
+            #
+            # print("f_He : ", f_He)
+            #
+            # print("E_He", E_He)
+            # print("He[1]", He[1])
+            #
+            # n1=interpolate.interp1d(E_He, f_He, fill_value="extrapolate", kind= "linear") #fonction primitive continue en fonction de E
 
-            pas=He[1][1]-He[1][0]
-            f_He[0]=pas*dn1_dE_continous_pre_calculated(LET_He[0])
-            for j in range(1,bins):
-            # Calcul de la primitive de dn1/dE
-                f_He[j]=f_He[j-1] + pas*dn1_dE_continous_pre_calculated(E_He[j])
-
-            n1=interpolate.interp1d(E_He, f_He, fill_value="extrapolate", kind= "linear") #fonction primitive continue en fonction de E
+            n1 = number_of_lethal_events_for_alpha_traversals(dn1_dE_continous_pre_calculated)
 
             n=0
             edep_n=0
@@ -732,10 +722,9 @@ def main() :
             print("len((data_EdepCell[ind_dose])[fEdepn])  = ", len((data_EdepCell[0])["fEdepn"]) )
 
             for ind_dose in range(0, nb_division_pack_cellules):
-                dosen_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepn"]) * KEV_IN_J / masse_nucleus)
+                dosen_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepn"]) * KEV_IN_J / masses_nuclei)
                 #dosen_append_sur_une_simu_np = 0
-                dosec_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepc"]) * KEV_IN_J / masse_cyto)
-                dosec_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepc"]) * KEV_IN_J / masse_cyto)
+                dosec_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepc"]) * KEV_IN_J / masses_cytoplasms)
                 #dosec_append_sur_une_simu_np += 0
 
 
