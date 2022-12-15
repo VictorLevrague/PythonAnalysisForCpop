@@ -1,5 +1,4 @@
 """
-
 Script allowing to convert .root raw data of Geant4 in data of interest
 
 Usage
@@ -11,8 +10,6 @@ Returns
     doses to cell nucleus and cytoplams
     cell survivals
     cross-fire information
-
-
 """
 
 import math
@@ -43,17 +40,18 @@ SIG0 = [49*np.pi, 24.01*np.pi, 34.81*np.pi] #From Mario calculations
 A_CST = 0.1602 #Gy μm3 keV−1
 energies_valid_for_alpha_beta_approximation = np.arange(200,90001)
 
-Emax=8000 #Energie max des ions Hélium émis, en keV
-
-radius_cell_line = 7 * 1e-4  # Rayon du noyau de la lignée HSG
-surface_centerslice_cell_line = math.pi * radius_cell_line ** 2
-length_of_cylinderslice_cell = 1
-
 Y0 = [0.06072969, 0.02562553, 0.03934994]
 A = [-0.18385472, -0.10426184, -0.11163773]
 W = [3.05093045, 2.87758559, 3.20398251]
 XC = [0.46545609, 0.38084839, 0.48452192]
 BETAG = [0.0961, 0.0405, 0.0625]  # constante de Monini et al. 2019
+
+
+Emax=8000 #Energie max des ions Hélium émis, en keV
+
+radius_cell_line = 7 * 1e-4  # Rayon du noyau de la lignée HSG
+surface_centerslice_cell_line = math.pi * radius_cell_line ** 2
+length_of_cylinderslice_cell = 1
 
 bins = 200
 START_TIME = time.time()
@@ -262,9 +260,7 @@ def open_available_data_window():
     global nb_cellules_xml
     nb_cellules_xml = count_number_of_cells_in_xml_file(xml_geom)  # Nombre de cellules contenues dans le fichier .xml de géométrie créé par CPOP
     print("nb_cellules_xml", nb_cellules_xml)
-    # nb_cellules_reel = 3069 # Nombre de cellules générées réellement dans la simulation Geant4, après gestion de la superposition
 
-    # cell_compartment_radionuclide="Membrane"
     global cell_compartment_radionuclide
     cell_compartment_radionuclide = (distrib_name_cb.get())
 
@@ -366,12 +362,7 @@ def main() :
 
     ########################### Paramètres optionnels ######################################
 
-    # Emax=8000 #Energie max des ions Hélium émis, en keV
-
     type_cell = 0 # 0=HSG, 1=V79, 2=CHO-K1, sert pour le calcul de survie cellulaire
-
-    # radius_zone1 = 50 # change le rayon de la région 1 (sphérique) pour les analyses
-    # radius_zone2 = 95
 
     histo_nb_noy_par_p = 0 # mettre 1 affiche l'histogramme du nombre de noyaux traversés par les particules
     histo_edep_noy_par_p = 0 # mettre 1 affiche l'histogramme de l'énergie moyenne déposée par particule dans un noyau quand elle y rentre
@@ -387,9 +378,7 @@ def main() :
 
     txt_id_deleted_cells = "Cpop_Deleted_Cells_ID_Txt/" + "IDCell_" + nom_config + ".txt"
 
-    real_id_cells = cpop_real_cell_id_determination(txt_id_deleted_cells, nb_cellules_xml)[0]
-    test_file_not_empty = cpop_real_cell_id_determination(txt_id_deleted_cells, nb_cellules_xml)[1]
-    deleted_id_txt = cpop_real_cell_id_determination(txt_id_deleted_cells, nb_cellules_xml)[2]
+    real_id_cells, test_file_not_empty, deleted_id_txt = cpop_real_cell_id_determination(txt_id_deleted_cells, nb_cellules_xml)
 
     nb_cellules_reel = len(real_id_cells)
 
@@ -689,20 +678,6 @@ def main() :
                 E_He[k] = (He[1][k] + He[1][k + 1]) / 2.
 
             ################################################################################################
-            # f_He  = np.zeros(bins)
-            #
-            # pas=He[1][1]-He[1][0]
-            # f_He[0]=pas*dn1_dE_continous_pre_calculated(LET_He[0])
-            # for j in range(1,bins):
-            # # Calcul de la primitive de dn1/dE
-            #     f_He[j]=f_He[j-1] + pas*dn1_dE_continous_pre_calculated(E_He[j])
-            #
-            # print("f_He : ", f_He)
-            #
-            # print("E_He", E_He)
-            # print("He[1]", He[1])
-            #
-            # n1=interpolate.interp1d(E_He, f_He, fill_value="extrapolate", kind= "linear") #fonction primitive continue en fonction de E
 
             n1 = number_of_lethal_events_for_alpha_traversals(dn1_dE_continous_pre_calculated)
 
@@ -715,17 +690,10 @@ def main() :
 
             # print("############################# Calcul de dose #######################################")
 
-            # print(data_EdepCell[0]["ID_Cell"])
-
-            print("len(dosen_append_sur_une_simu_np) = ", len(dosen_append_sur_une_simu_np))
-            print("len((data_EdepCell[ind_dose])[fEdepn])  = ", len((data_EdepCell[0])["fEdepn"]) )
 
             for ind_dose in range(0, nb_division_pack_cellules):
                 dosen_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepn"]) * KEV_IN_J / masses_nuclei)
-                #dosen_append_sur_une_simu_np = 0
                 dosec_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepc"]) * KEV_IN_J / masses_cytoplasms)
-                #dosec_append_sur_une_simu_np += 0
-
 
 
             count_cell_id = np.bincount((data_alpha["ID_Cell"]).astype(int))
@@ -796,12 +764,6 @@ def main() :
 
             count_event_id = np.bincount((data_alpha["eventID"]).astype(int))
 
-            # print()
-            # print()
-            # print(count_event_id)
-            # print()
-            # print()
-
             for id_part in range(0, len(np.unique(data_alpha["eventID"]))):
                 nb_nucl_traversées_par_la_particule=count_event_id[id_part]
                 nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus.append(nb_nucl_traversées_par_la_particule)
@@ -854,32 +816,15 @@ def main() :
         surviel_append_sur_une_simu[np.where(surviel_append_sur_une_simu == 0)] = 10**(-299)
 
         surviel_append_sur_toutes_simus.append(surviel_append_sur_une_simu)
-        #
-        # print("len(surviel_append_sur_une_simu)", len(surviel_append_sur_une_simu))
-        # print("len(surviel_append_sur_toutes_simus)", len(surviel_append_sur_toutes_simus))
 
         alpha_ref = 0.313  # HSG
         beta_ref = 0.0615  # HSG
 
-        # print((alpha_ref ** 2 - 4 * beta_ref * np.log(surviel_append_sur_une_simu))<=0)
+        print()
 
-        print()
-        # print(np.where(surviel_append_sur_une_simu==0))
-        # print(np.where((alpha_ref ** 2 - 4 * beta_ref * np.log(surviel_append_sur_une_simu))<=0))
-        # #
-        # print((alpha_ref ** 2 - 4 * beta_ref * np.log(surviel_append_sur_une_simu))[np.where((alpha_ref ** 2 - 4 * beta_ref * np.log(surviel_append_sur_une_simu))<=0)])
-        print()
-        #
-        # print(n_unique_tot_sur_une_simu[2422])
-        # print(n_unique_tot_sur_une_simu[2423])
-        # print(surviel_append_sur_une_simu[2423])
 
         Dose_Bio_append_sur_une_simu = (np.sqrt(alpha_ref ** 2 - 4 * beta_ref * np.log(surviel_append_sur_une_simu)) - alpha_ref) / (2 * beta_ref)
-        #Dose_Bio_append_sur_une_simu = (np.sqrt(alpha_ref ** 2 - 4 * beta_ref * np.log(1)) - alpha_ref) / (2 * beta_ref)
         Dose_Bio_append_sur_toutes_simus.append(Dose_Bio_append_sur_une_simu)
-
-        print("len(Dose_Bio_append_sur_une_simu) : ", len(Dose_Bio_append_sur_une_simu))
-        print("len(Dose_Bio_append_sur_toutes_simus) : ", len(Dose_Bio_append_sur_toutes_simus))
 
         exp_surviel = np.exp(-np.asarray(surviel_append_sur_une_simu))
         TCP_une_simu = np.prod(exp_surviel)
@@ -928,10 +873,6 @@ def main() :
     print()
 
     Edep_dans_noy_par_particule_np = Ei_Ef_sum_sur_toutes_simus_sans_zero_np/Nombre_particules_par_noyau_sur_toutes_simus_sans_zero_np
-    # print()
-    # print()
-    # print("Edep_dans_noy_par_particule_np : " ,Edep_dans_noy_par_particule_np)
-    # print("len(Edep_dans_noy_par_particule_np) :" ,len(Edep_dans_noy_par_particule_np))
     mean_Edep_dans_noy_par_particule = np.mean(Edep_dans_noy_par_particule_np)
 
     dosen_append_sur_toutes_simus_np=np.asarray(dosen_append_sur_toutes_simus)
@@ -981,28 +922,10 @@ def main() :
     dose_bio = np.mean(Dose_Bio_append_sur_toutes_simus_np, axis=0)
     mean_CrossFire= np.full(nb_cellules_reel ,np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_np)*100)
 
-    # print(TCP_append_sur_toutes_simus_np)
-
-    # print(dosen_c_append_sur_toutes_simus_np)
-    # print(dosen_c_tot)
-
     dose_tot=dosen_tot+dosec_tot
 
     sum_dose_noyau = np.mean(np.sum(dosen_append_sur_toutes_simus_np,axis=1))
     sum_dose_tot = np.mean(np.sum(dosen_c_append_sur_toutes_simus_np,axis=1))
-
-    # print("len surviel_append_sur_toutes_simus_np = " )
-    # print(len(surviel_append_sur_toutes_simus_np))
-    #
-    # print("len surviel mean= " )
-    # print(len(surviel))
-    #
-    # print("len dosen_append_sur_toutes_simus = " )
-    # print(len(dosen_append_sur_toutes_simus))
-    #
-    # print("len dosen mean= " )
-    # print(len(dosen_tot))
-
 
     incertdmoy_n_tot=np.std(dosen_append_sur_toutes_simus_np,axis=0)
     incertdmoy_c_tot=np.std(dosec_append_sur_toutes_simus_np,axis=0)
@@ -1011,12 +934,6 @@ def main() :
     incert_crossfire=np.full(nb_cellules_reel ,np.std(Ratio_CrossFire_Noyau_sur_toutes_simus_np)*100)
     incert_mean_cell_survival=np.full(nb_cellules_reel ,np.std(np.mean(surviel_append_sur_toutes_simus_np,axis=1)))
     incert_dose_bio=np.std(np.mean(Dose_Bio_append_sur_toutes_simus_np, axis=1))
-
-    # Edepmoy_n_p=round(np.mean(Edepmoy_n),2)
-    # incertEdepmoy_n_p=round(np.std(Edepmoy_n)/np.sqrt(nb_config-indice_depart),2)
-    # Dmoy_n_p=round(np.mean(Edepmoy_n*KEV_IN_J*100)/masse_noyau,2)
-    # incertDmoy_n_p=round(np.std((Edepmoy_n*KEV_IN_J*100)/masse_noyau)/np.sqrt(nb_config-indice_depart),2)
-    #
 
     print()
     print("nb de config avec erreur",err)
@@ -1038,23 +955,11 @@ def main() :
     print("EUD =")
     print(EUD)
 
-    # D_bio = (np.sqrt(alpha_ref ** 2 - 4 * beta_ref * np.log(surviel)) - alpha_ref) / (2 * beta_ref)
-    #
-    # print("Dose bio = ")
-    # print(D_bio)
-
     print("Min dose totale absorbée=")
-    #ind_min_dose=np.argmin(dosen_c_tot)
-    #print(dosen_c_tot[ind_min_dose], "+-", incertdmoy_n_c_tot[ind_min_dose])
     print(np.mean(np.min(dosen_c_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.min(dosen_c_append_sur_toutes_simus_np,axis=1)))
 
     print("Max dose totale absorbée=")
-    #ind_max_dose=np.argmax(dosen_c_tot)
-    #print(dosen_c_tot[ind_max_dose], "+-", incertdmoy_n_c_tot[ind_max_dose])
     print(np.mean(np.max(dosen_c_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.max(dosen_c_append_sur_toutes_simus_np,axis=1)))
-
-    # print("Moyenne des doses absorbées aux cellules=")
-    # print(np.mean(dosen_c_tot), "+-", np.std(dosen_c_tot))
 
     # Les 2 méthodes de calcul de la moyenne sont les mêmes, mais la seconde calcule correctement l'incertitude
 
@@ -1070,14 +975,8 @@ def main() :
     print("Sum dose cellules = ")
     print(np.sum(dosen_c_tot))
 
-    # print(Edep_dans_noy_par_particule_np)
-    # print(np.mean(Edep_dans_noy_par_particule_np))
-
     print("Energie moyenne déposée par une particule quand elle touche un noyau=")
     print(mean_Edep_dans_noy_par_particule, "+-", np.std(Edep_dans_noy_par_particule_np)/np.sqrt(len(Edep_dans_noy_par_particule_np)))
-
-    # print("Moyenne des survies cellulaires=")
-    # print(np.mean(np.mean(surviel_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(surviel_append_sur_toutes_simus_np,axis=1)))
 
     print("Nombre moyen de noyaux traversés par une particule en moyenne=")
     print(np.mean(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus), "+-", np.std(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus)/np.sqrt(len(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus))) #Pour distribution, voir histo
@@ -1110,28 +1009,6 @@ def main() :
     print()
 
     id_cell_arr=np.arange(nb_cellules_reel)
-
-    # fname = "AnalysisResults/" + study_type_folder_name + "/" +  nom_dossier_pour_excel_analyse  + "/" + "Emission" + cell_compartment_radionuclide + ".csv"
-    # with open(fname, "w") as f:
-    #     fileWriter = csv.writer(f, delimiter=',',lineterminator='\n')
-    #     fileWriter.writerow(['ID_Cell','Zone_Cell' ,'Survie locale', 'Incert Survie Locale','Survie globale', 'Dmoy au noyau, par simu (Gy)','Incert Dmoy au noyau par simu(Gy)','Dmoy cyto, par simu (Gy)','incert Dmoy cyto par simu (Gy)','Dmoy au noyau+cyto, par simu (Gy)','incert Dmoy noy+cyto par simu (Gy)', 'Ratio Crossfire %','Incert Ratio Crossfire %','Ratio Crossfire zone 1 %', 'Ratio Crossfire zone 2 %','Nb noyau par particule', 'Sum dose sur tous noyaux', 'Sum dose sur toutes cellules', 'Edep moy par particule dans noyau', 'Incert Edep moy par particule dans noyau', 'Nb noyaux par particule', 'Incert nb noyaux par particule' ,'TCP','Incert_TCP','EUD','Dose bio','IncertDoseBio'])
-    #     for w in range(0,nb_cellules_reel):
-    #         fileWriter.writerow([id_cell_arr[w],zone_cell[w],surviel[w], incert_mean_cell_survival, survieg[w],dosen_tot[w],incertdmoy_n_tot[w],dosec_tot[w],incertdmoy_c_tot[w],dosen_c_tot[w],incertdmoy_n_c_tot[w], np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_np)*100, incert_crossfire,np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_zone1_np)*100, np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_zone2_np)*100,np.mean(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus), sum_dose_noyau, sum_dose_tot, mean_Edep_dans_noy_par_particule,np.std(Edep_dans_noy_par_particule_np)/np.sqrt(len(Edep_dans_noy_par_particule_np)), np.mean(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus), np.std(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus)/np.sqrt(len(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus)),TCP,np.std(TCP_append_sur_toutes_simus_np),EUD, dose_bio[w], incert_dose_bio])
-    #
-    # fname_xlsx = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse  + "/" + "Emission" + cell_compartment_radionuclide + ".xlsx"
-    #
-    # merge_all_to_a_book(glob.glob(fname), fname_xlsx)
-
-    # fname = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse + "/" + "Emission" + cell_compartment_radionuclide + "SimID" + ".csv"
-    # with open(fname, "w") as f:
-    #     fileWriter = csv.writer(f, delimiter=',',lineterminator='\n')
-    #     fileWriter.writerow(['SimulationID', 'TCP', 'Dose moyenne noyau', 'Incert dose moyenne noyau', 'Dose moyenne cellule', 'Incert dose moyenne cellule', 'Dose bio moyenne', 'Incert dose bio moyenne'])
-    #     for w in range(0,len(SimulationId)):
-    #         fileWriter.writerow([SimulationId[w], TCP_append_sur_toutes_simus_np[w], np.mean(dosen_append_sur_toutes_simus_np,axis=1)[w], np.std(dosen_append_sur_toutes_simus_np,axis=1)[w]/np.sqrt(nb_cellules_reel), np.mean(dosen_c_append_sur_toutes_simus_np,axis=1)[w], np.std(dosen_c_append_sur_toutes_simus_np,axis=1)[w]/np.sqrt(nb_cellules_reel), np.mean(Dose_Bio_append_sur_toutes_simus_np,axis=1)[w], np.std(Dose_Bio_append_sur_toutes_simus_np,axis=1)[w]/np.sqrt(nb_cellules_reel)])
-    #
-    # fname_xlsx = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse + "/" + "Emission" + cell_compartment_radionuclide + "SimID" + ".xlsx"
-    #
-    # merge_all_to_a_book(glob.glob(fname), fname_xlsx)
 
 
     fname = "AnalysisResults/" + study_type_folder_name + "/" + nom_dossier_pour_excel_analyse + "/" + "Emission" + cell_compartment_radionuclide + ".xlsx"

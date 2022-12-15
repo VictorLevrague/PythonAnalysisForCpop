@@ -1,7 +1,51 @@
 import numpy as np
+import os
+from xml.dom import minidom
 
 def column(matrix, i):
     return [row[i] for row in matrix]
+
+def subset_sorted_array(A,B):
+    """
+    Removes elements of A sorted array that are contained in B
+    """
+    Aa = A[np.where(A <= np.max(B))]
+    Bb = (B[np.searchsorted(B,Aa)] !=  Aa)
+    Bb = np.pad(Bb,(0,A.shape[0]-Aa.shape[0]), mode='constant', constant_values=True)
+    return A[Bb]
+
+def count_number_of_cells_in_xml_file(xml_filename):
+    xml_file_opened = minidom.parse(xml_filename)
+    xml_file_opened_with_cell_tag = xml_file_opened.getElementsByTagName('CELL')
+    nb_cells = 0
+    for node in xml_file_opened_with_cell_tag:
+        xml_file_opened_with_cell_and_x_tag = node.getElementsByTagName('x')
+        for xml_parser in xml_file_opened_with_cell_and_x_tag:
+            # x = xml_parser.firstChild.data
+            nb_cells += 1
+    return(nb_cells)
+
+def cpop_real_cell_id_determination(file_with_deleted_cell_id_in_cpop, nb_cellules_xml):
+    """
+    When geometry is generated in CPOP, cell ids are between 3 and nb_cells+3.
+    But, cells are removed during the cell overlap mangement,
+    hence, the associated cell ids don't exist anymore.
+
+    Returns
+    ------
+    a sorted array with the cell ids that exist in the geometry
+    a test for the validity of the txt file for deleted ids
+    a sorted array with the deleted cells ids
+    """
+    test_file_not_empty = os.stat(file_with_deleted_cell_id_in_cpop).st_size
+    if test_file_not_empty != 0:
+        deleted_id_txt = np.loadtxt(file_with_deleted_cell_id_in_cpop)
+        deleted_id_txt = np.unique(deleted_id_txt)
+        deleted_id_txt = np.sort(deleted_id_txt)
+    real_id_cells = np.arange(3,nb_cellules_xml+3)
+    if test_file_not_empty != 0:
+        real_id_cells = subset_sorted_array(real_id_cells,deleted_id_txt)
+    return(real_id_cells, test_file_not_empty, deleted_id_txt)
 
 def masses_cells_reading(txt_file_with_masses_cells):
     """
@@ -15,17 +59,6 @@ def masses_cells_reading(txt_file_with_masses_cells):
     masses_cells = np.array(masses_cells) * 10 ** (-6)  #conversion in kg
     masses_cytoplasms = masses_cells - masses_nuclei  #kg
     return(masses_cytoplasms, masses_nuclei, masses_cells)
-
-def count_number_of_cells_in_xml_file(xml_filename):
-    xml_file_opened = minidom.parse(xml_filename)
-    xml_file_opened_with_cell_tag = xml_file_opened.getElementsByTagName('CELL')
-    nb_cells = 0
-    for node in xml_file_opened_with_cell_tag:
-        xml_file_opened_with_cell_and_x_tag = node.getElementsByTagName('x')
-        for xml_parser in xml_file_opened_with_cell_and_x_tag:
-            # x = xml_parser.firstChild.data
-            nb_cells += 1
-    return(nb_cells)
 
 def positions_cells_reading(xml_file_with_cells_positions, real_id_cells):
     """
@@ -69,5 +102,22 @@ def positions_cells_reading(xml_file_with_cells_positions, real_id_cells):
     positions_z = positions_and_id[:,2]
     return(positions_x, positions_y, positions_z)
 
-
-###### TO DO : write arrays in txt #####
+geometry_name = "Elg095um75CP"
+###
+txt_cells_masses = "Cpop_Masse_Txt/" + "MassesCell_" + geometry_name + ".txt"
+try :
+    os.makedirs(os.path.join("./GeometryInformations/" + geometry_name))
+except:
+    pass
+masses_cytoplasms, masses_nuclei, masses_cells = masses_cells_reading(txt_cells_masses)
+np.savetxt("GeometryInformations/" + geometry_name + "/MassesCells.txt", (masses_cytoplasms,
+                                                                 masses_nuclei, masses_cells))
+###
+xml_geometry_file = "Cpop_Geom_XML/" + geometry_name + ".cfg" + ".xml"
+nb_cellules_xml = count_number_of_cells_in_xml_file(xml_geometry_file)
+txt_id_deleted_cells = "Cpop_Deleted_Cells_ID_Txt/" + "IDCell_" + geometry_name + ".txt"
+real_id_cells, test_file_not_empty, deleted_id_txt = cpop_real_cell_id_determination(txt_id_deleted_cells,
+                                                                                     nb_cellules_xml)
+positions_x, positions_y, positions_z = positions_cells_reading(xml_geometry_file, real_id_cells)
+np.savetxt("GeometryInformations/" + geometry_name + "/PositionsCells.txt", (positions_x,
+                                                                 positions_y, positions_z))
