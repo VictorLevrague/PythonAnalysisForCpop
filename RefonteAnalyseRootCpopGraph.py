@@ -47,7 +47,7 @@ Emax=8000 #Energie max des ions Hélium émis, en keV
 
 radius_cell_line = 7 * 1e-4  # Rayon du noyau de la lignée HSG
 surface_centerslice_cell_line = math.pi * radius_cell_line ** 2
-length_of_cylinderlike_cell = 1
+length_of_cylinderslice_cell = 1
 
 Y0 = [0.06072969, 0.02562553, 0.03934994]
 A = [-0.18385472, -0.10426184, -0.11163773]
@@ -94,7 +94,6 @@ def alpha_nanox(E,type_cell):
     b = BETAG[type_cell] * (((A_CST * conv_LET_E_SRIM * 0.8)/SIG0[type_cell]) ** 2)
     return ((SIG0[type_cell] +((A_CST * conv_LET_E_SRIM * (b-1))*np.sqrt(beta_nanox(E/4000,type_cell)/(b+(b*b)/2))))/(A_CST * conv_LET_E_SRIM))
 
-
 def dn1_dE_continous():
     conversion_energy_in_let_srim_alpha_beta_approximation_range = \
         conversion_energy_in_let("SRIM", energies_valid_for_alpha_beta_approximation)
@@ -103,10 +102,9 @@ def dn1_dE_continous():
     dn1_dE = -np.log(1 - alpha_nanox(energies_valid_for_alpha_beta_approximation,0) \
                      * UNIT_COEFFICIENT*conversion_energy_in_let_srim_alpha_beta_approximation_range \
                      / surface_centerslice_cell_line) \
-                     / (length_of_cylinderlike_cell * conversion_energy_in_let_g4_alpha_beta_approximation_range) #calculation of number of lethal events per keV, via Mario's approximations
+                     / (length_of_cylinderslice_cell * conversion_energy_in_let_g4_alpha_beta_approximation_range) #calculation of number of lethal events per keV, via Mario's approximations
     dn1_dE_interpolated = interpolate.interp1d(energies_valid_for_alpha_beta_approximation, dn1_dE, fill_value="extrapolate", kind="linear")
     return dn1_dE_interpolated
-
 
 def number_of_lethal_events_for_alpha_traversals(dn1_dE_function):
     """
@@ -151,22 +149,77 @@ def masses_cells_reading(txt_file_with_masses_cells):
     masses_cytoplasms = masses_cells - masses_nuclei  #kg
     return(masses_cytoplasms, masses_nuclei, masses_cells)
 
-def positions_cells_reading(xml_file_with_cells_positions):
+def positions_cells_reading(xml_file_with_cells_positions,real_id_cells):
+    """
+    Returns 3 numpy arrays, with the x, y and z positions of the cells, sorted by cell ids
+    """
     cells_positions_xml_opened = minidom.parse(xml_file_with_cells_positions)
     cells_positions_xml_opened_with_cell_tag = cells_positions_xml_opened.getElementsByTagName('CELL')
+    nb_cellules_xml = count_number_of_cells_in_xml_file(xml_file_with_cells_positions)
+    ###
+    positions_x=np.zeros(nb_cellules_xml)
+    positions_y=np.zeros(nb_cellules_xml)
+    positions_z=np.zeros(nb_cellules_xml)
+    positions_and_id = np.zeros((nb_cellules_xml,4))
+    row_nb = 0
+    ###
+    for parser_xml in cells_positions_xml_opened_with_cell_tag:
+        positions_and_id[row_nb][3] = parser_xml.attributes['ID'].value
+        row_nb += 1
+    row_nb = 0
+    for node in cells_positions_xml_opened_with_cell_tag:
+        positions_x_xml = node.getElementsByTagName('x')
+        positions_y_xml = node.getElementsByTagName('y')
+        positions_z_xml = node.getElementsByTagName('z')
+        for parser_xml in positions_x_xml:
+            positions_and_id[row_nb][0] = parser_xml.firstChild.data
+        for parser_xml in positions_y_xml:
+            positions_and_id[row_nb][1] = parser_xml.firstChild.data
+        for parser_xml in positions_z_xml:
+            positions_and_id[row_nb][2] = parser_xml.firstChild.data
+        row_nb += 1
+    positions_and_id = positions_and_id[positions_and_id[:, 3].argsort()] #sorts the array by cells id
+    index_cell_in_positions_and_id = 0
+    indexes_to_delete = []
+    for cell_id in column(positions_and_id,3):
+        if not ((cell_id in real_id_cells)):
+            indexes_to_delete.append(index_cell_in_positions_and_id)
+        index_cell_in_positions_and_id += 1
+    positions_and_id = np.delete(positions_and_id, indexes_to_delete, 0)
+    positions_x = positions_and_id[:,0]
+    positions_y = positions_and_id[:,1]
+    positions_z = positions_and_id[:,2]
+    return(positions_x, positions_y, positions_z)
 
+def determine_cells_in_2_spheroid_zones(positions_x, positions_y, positions_z, radius_zone_1, radius_zone_2, nb_cells):
+    """
+    Returns the number of cells in zone 1 and 2 for chosen radii (in µm),
+    and an array, sorted by cell id, with the zones where the cells are
+    """
+    positions_cell = np.sqrt(positions_x ** 2 + positions_y ** 2 + positions_z ** 2)
+    zone_cell = np.zeros(nb_cells)
+    nb_cell_zone_1 = 0
+    nb_cell_zone_2 = 0
+    index_list = np.arange(0,nb_cells)
+    for index in index_list:
+        if (positions_cell[index] < radius_zone_1):
+            zone_cell[index] = 1
+            nb_cell_zone_1 += 1
+        elif (positions_cell[index] < radius_zone_2):
+            zone_cell[index] = 2
+            nb_cell_zone_2 += 1
+    return(zone_cell, nb_cell_zone_1, nb_cell_zone_2)
 
 def count_number_of_cells_in_xml_file(xml_filename):
-    file = minidom.parse(xml_filename)
-    cell = file.getElementsByTagName('CELL')
-
-    nb_x = 0
-    for node in cell:
-        alist = node.getElementsByTagName('x')
-        for a in alist:
-            x = a.firstChild.data
-            nb_x += 1
-    return(nb_x)
+    xml_file_opened = minidom.parse(xml_filename)
+    xml_file_opened_with_cell_tag = xml_file_opened.getElementsByTagName('CELL')
+    nb_cells = 0
+    for node in xml_file_opened_with_cell_tag:
+        xml_file_opened_with_cell_and_x_tag = node.getElementsByTagName('x')
+        for xml_parser in xml_file_opened_with_cell_and_x_tag:
+            # x = xml_parser.firstChild.data
+            nb_cells += 1
+    return(nb_cells)
 
 
 def subset_sorted_array(A,B):
@@ -317,8 +370,8 @@ def main() :
 
     type_cell = 0 # 0=HSG, 1=V79, 2=CHO-K1, sert pour le calcul de survie cellulaire
 
-    radius_zone1 = 50 # change le rayon de la région 1 (sphérique) pour les analyses
-    radius_zone2 = 95
+    # radius_zone1 = 50 # change le rayon de la région 1 (sphérique) pour les analyses
+    # radius_zone2 = 95
 
     histo_nb_noy_par_p = 0 # mettre 1 affiche l'histogramme du nombre de noyaux traversés par les particules
     histo_edep_noy_par_p = 0 # mettre 1 affiche l'histogramme de l'énergie moyenne déposée par particule dans un noyau quand elle y rentre
@@ -353,77 +406,23 @@ def main() :
 
     masses_cytoplasms, masses_nuclei, masses_cells = masses_cells_reading(txt_cells_masses)
 
-    r_tum = float(r_sph) * 10**(-6) #en mètres
-    masse_tum=((4/3)*np.pi*r_tum**3)*1000 #en kg
-
-    # print("masse_tum = ", masse_tum)
+    r_tum = float(r_sph) * 10**(-6) #in meters
+    masse_tum=((4/3)*np.pi*r_tum**3)*1000 #in kg
 
     print("cell_packing = ", sum(masses_cells)/masse_tum)
     print("masse_tum = ", masse_tum)
 
     ###### Positions ######
 
-    xml_geom_ouvert = minidom.parse(xml_geom)
-    cell_xml = xml_geom_ouvert.getElementsByTagName('CELL')
+    positions_x, positions_y, positions_z = positions_cells_reading(xml_geom, real_id_cells)
 
-    positions_x=np.zeros(nb_cellules_xml)
-    positions_y=np.zeros(nb_cellules_xml)
-    positions_z=np.zeros(nb_cellules_xml)
-    positions_et_id = np.zeros((nb_cellules_xml,4))
-    indice_positions_id = 0
+    zone_cell, nb_cell_zone_1, nb_cell_zone_2 = determine_cells_in_2_spheroid_zones(positions_x,
+                                                    positions_y, positions_z,
+                                                    radius_zone_1 = 50, radius_zone_2 = 95,
+                                                    nb_cells = nb_cellules_reel)
 
-    for it_cell_xml in cell_xml:
-        positions_et_id[indice_positions_id][3] = it_cell_xml.attributes['ID'].value
-        indice_positions_id+=1
-
-    indice_positions_id = 0
-
-    for node in cell_xml:
-        positions_x_xml = node.getElementsByTagName('x')
-        positions_y_xml = node.getElementsByTagName('y')
-        positions_z_xml = node.getElementsByTagName('z')
-        for parser_xml in positions_x_xml:
-            positions_et_id[indice_positions_id][0] = parser_xml.firstChild.data
-        for parser_xml in positions_y_xml:
-            positions_et_id[indice_positions_id][1] = parser_xml.firstChild.data
-        for parser_xml in positions_z_xml:
-            positions_et_id[indice_positions_id][2] = parser_xml.firstChild.data
-        indice_positions_id+=1
-
-    positions_et_id = positions_et_id[positions_et_id[:, 3].argsort()]
-
-    # print(len(positions_et_id))
-
-    indice_cellule = 0
-    indices_à_supprimer = []
-
-    for coo_et_id_cellule in positions_et_id:
-        if not ((coo_et_id_cellule[3] in real_id_cells)):
-            indices_à_supprimer.append(indice_cellule)
-        indice_cellule += 1
-
-    positions_et_id = np.delete(positions_et_id, indices_à_supprimer, 0)
-
-    positions_x_reelles = positions_et_id[:,0]
-    positions_y_reelles = positions_et_id[:,1]
-    positions_z_reelles = positions_et_id[:,2]
-
-    positions_cell=np.sqrt(positions_x_reelles**2 + positions_y_reelles**2 + positions_z_reelles**2)
-    zone_cell=np.zeros(nb_cellules_reel)
-    nb_cell_zone1=0
-    nb_cell_zone2=0
-
-    for i in range(0,nb_cellules_reel):
-        position_cell_temp = positions_cell[i]
-        if (position_cell_temp<radius_zone1) :
-            zone_cell[i]=1
-            nb_cell_zone1+=1
-        elif (position_cell_temp<radius_zone2):
-            zone_cell[i]=2
-            nb_cell_zone2+=1
-
-    print("Nombre de cellules en zone 1 =", nb_cell_zone1)
-    print("Nombre de cellules en zone 2 =", nb_cell_zone2)
+    print("nb_cell_zone_1", nb_cell_zone_1)
+    print("nb_cell_zone_2", nb_cell_zone_2)
 
     ######################## Initialisation ############################################################
 
