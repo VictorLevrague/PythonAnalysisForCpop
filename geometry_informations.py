@@ -102,13 +102,13 @@ def positions_cells_reading(xml_file_with_cells_positions, real_id_cells):
     positions_z = positions_and_id[:,2]
     return(positions_x, positions_y, positions_z)
 
-geometry_name = "Elg095um50CP"
-###
-txt_cells_masses = "Cpop_Masse_Txt/" + "MassesCell_" + geometry_name + ".txt"
-try :
-    os.makedirs(os.path.join("./GeometryInformations/" + geometry_name))
-except:
-    pass
+# geometry_name = "Elg095um50CP"
+# ###
+# txt_cells_masses = "Cpop_Masse_Txt/" + "MassesCell_" + geometry_name + ".txt"
+# try :
+#     os.makedirs(os.path.join("./GeometryInformations/" + geometry_name))
+# except:
+#     pass
 # masses_cytoplasms, masses_nuclei, masses_cells = masses_cells_reading(txt_cells_masses)
 # np.savetxt("GeometryInformations/" + geometry_name + "/MassesCells.txt", (masses_cytoplasms,
 #                                                                  masses_nuclei, masses_cells))
