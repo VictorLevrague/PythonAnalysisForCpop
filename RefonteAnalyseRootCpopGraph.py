@@ -12,6 +12,7 @@ Returns
     cross-fire information
 """
 
+from
 import math
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,10 +41,18 @@ SIG0 = [49*np.pi, 24.01*np.pi, 34.81*np.pi] #From Mario calculations
 A_CST = 0.1602 #Gy μm3 keV−1
 energies_valid_for_alpha_beta_approximation = np.arange(200,90001)
 
-Y0 = [0.06072969, 0.02562553, 0.03934994]
-A = [-0.18385472, -0.10426184, -0.11163773]
-W = [3.05093045, 2.87758559, 3.20398251]
-XC = [0.46545609, 0.38084839, 0.48452192]
+################ Fit parameters used in article TCP RIV-alpha ###################
+# Y0 = [0.06072969, 0.02562553, 0.03934994] #HSG, V79, CHO-K1
+# A = [-0.18385472, -0.10426184, -0.11163773]
+# W = [3.05093045, 2.87758559, 3.20398251]
+# XC = [0.46545609, 0.38084839, 0.48452192]
+
+################ Fit parameters from 2022/12/16 ################### TO DO : evaluate differences with previous parameters
+Y0 = [0.06486164, 0.02722410, 0.04221387] #HSG, V79, CHO-K1
+A = [-0.26336407, -0.11801719, -0.19357751]
+W = [3.39940424, 2.97713123, 3.90866411]
+XC = [-0.00863166, 0.23348883, -0.25238105]
+
 BETAG = [0.0961, 0.0405, 0.0625]  # constante de Monini et al. 2019
 
 
