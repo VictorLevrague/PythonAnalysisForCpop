@@ -12,7 +12,7 @@ Returns
     cross-fire information
 """
 
-from
+from geometry_informations import *
 import math
 import matplotlib.pyplot as plt
 import numpy as np
@@ -124,79 +124,79 @@ def number_of_lethal_events_for_alpha_traversals(dn1_dE_function):
                               kind="linear")  # fonction primitive continue en fonction de E
     return n1
 
-def cpop_real_cell_id_determination(file_with_deleted_cell_id_in_cpop, nb_cellules_xml):
-    """
-    When geometry is generated in CPOP, cell ids are between 3 and nb_cells+3.
-    But, cells are removed during the cell overlap mangement,
-    hence, the associated cell ids don't exist anymore.
+# def cpop_real_cell_id_determination(file_with_deleted_cell_id_in_cpop, nb_cellules_xml):
+#     """
+#     When geometry is generated in CPOP, cell ids are between 3 and nb_cells+3.
+#     But, cells are removed during the cell overlap mangement,
+#     hence, the associated cell ids don't exist anymore.
+#
+#     Returns
+#     ------
+#     a sorted array with the cell ids that exist in the geometry
+#     a test for the validity of the txt file for deleted ids
+#     a sorted array with the deleted cells ids
+#     """
+#     test_file_not_empty = os.stat(file_with_deleted_cell_id_in_cpop).st_size
+#     if test_file_not_empty != 0:
+#         deleted_id_txt = np.loadtxt(file_with_deleted_cell_id_in_cpop)
+#         deleted_id_txt = np.unique(deleted_id_txt)
+#         deleted_id_txt = np.sort(deleted_id_txt)
+#     real_id_cells = np.arange(3,nb_cellules_xml+3)
+#     if test_file_not_empty != 0:
+#         real_id_cells = subset_sorted_array(real_id_cells,deleted_id_txt)
+#     return(real_id_cells, test_file_not_empty, deleted_id_txt)
 
-    Returns
-    ------
-    a sorted array with the cell ids that exist in the geometry
-    a test for the validity of the txt file for deleted ids
-    a sorted array with the deleted cells ids
-    """
-    test_file_not_empty = os.stat(file_with_deleted_cell_id_in_cpop).st_size
-    if test_file_not_empty != 0:
-        deleted_id_txt = np.loadtxt(file_with_deleted_cell_id_in_cpop)
-        deleted_id_txt = np.unique(deleted_id_txt)
-        deleted_id_txt = np.sort(deleted_id_txt)
-    real_id_cells = np.arange(3,nb_cellules_xml+3)
-    if test_file_not_empty != 0:
-        real_id_cells = subset_sorted_array(real_id_cells,deleted_id_txt)
-    return(real_id_cells, test_file_not_empty, deleted_id_txt)
+# def masses_cells_reading(txt_file_with_masses_cells):
+#     masses_cells_txt_numpy = np.loadtxt(txt_file_with_masses_cells, dtype={'names': ('masse_noyau', 'unit1', 'masse_cell', 'unit2'),
+#                                                     'formats': (float, '|S15', float, '|S15')})
+#     masses_nuclei = (column(masses_cells_txt_numpy,0))
+#     masses_nuclei = np.array(masses_nuclei) * 10**(-6) #conversion in kg
+#     masses_cells = (column(masses_cells_txt_numpy,2))
+#     masses_cells = np.array(masses_cells) * 10 ** (-6)  #conversion in kg
+#     masses_cytoplasms = masses_cells - masses_nuclei  #kg
+#     return(masses_cytoplasms, masses_nuclei, masses_cells)
 
-def masses_cells_reading(txt_file_with_masses_cells):
-    masses_cells_txt_numpy = np.loadtxt(txt_file_with_masses_cells, dtype={'names': ('masse_noyau', 'unit1', 'masse_cell', 'unit2'),
-                                                    'formats': (float, '|S15', float, '|S15')})
-    masses_nuclei = (column(masses_cells_txt_numpy,0))
-    masses_nuclei = np.array(masses_nuclei) * 10**(-6) #conversion in kg
-    masses_cells = (column(masses_cells_txt_numpy,2))
-    masses_cells = np.array(masses_cells) * 10 ** (-6)  #conversion in kg
-    masses_cytoplasms = masses_cells - masses_nuclei  #kg
-    return(masses_cytoplasms, masses_nuclei, masses_cells)
-
-def positions_cells_reading(xml_file_with_cells_positions,real_id_cells):
-    """
-    Returns 3 numpy arrays, with the x, y and z positions of the cells, sorted by cell ids
-    """
-    cells_positions_xml_opened = minidom.parse(xml_file_with_cells_positions)
-    cells_positions_xml_opened_with_cell_tag = cells_positions_xml_opened.getElementsByTagName('CELL')
-    nb_cellules_xml = count_number_of_cells_in_xml_file(xml_file_with_cells_positions)
-    ###
-    positions_x=np.zeros(nb_cellules_xml)
-    positions_y=np.zeros(nb_cellules_xml)
-    positions_z=np.zeros(nb_cellules_xml)
-    positions_and_id = np.zeros((nb_cellules_xml,4))
-    row_nb = 0
-    ###
-    for parser_xml in cells_positions_xml_opened_with_cell_tag:
-        positions_and_id[row_nb][3] = parser_xml.attributes['ID'].value
-        row_nb += 1
-    row_nb = 0
-    for node in cells_positions_xml_opened_with_cell_tag:
-        positions_x_xml = node.getElementsByTagName('x')
-        positions_y_xml = node.getElementsByTagName('y')
-        positions_z_xml = node.getElementsByTagName('z')
-        for parser_xml in positions_x_xml:
-            positions_and_id[row_nb][0] = parser_xml.firstChild.data
-        for parser_xml in positions_y_xml:
-            positions_and_id[row_nb][1] = parser_xml.firstChild.data
-        for parser_xml in positions_z_xml:
-            positions_and_id[row_nb][2] = parser_xml.firstChild.data
-        row_nb += 1
-    positions_and_id = positions_and_id[positions_and_id[:, 3].argsort()] #sorts the array by cells id
-    index_cell_in_positions_and_id = 0
-    indexes_to_delete = []
-    for cell_id in column(positions_and_id,3):
-        if not ((cell_id in real_id_cells)):
-            indexes_to_delete.append(index_cell_in_positions_and_id)
-        index_cell_in_positions_and_id += 1
-    positions_and_id = np.delete(positions_and_id, indexes_to_delete, 0)
-    positions_x = positions_and_id[:,0]
-    positions_y = positions_and_id[:,1]
-    positions_z = positions_and_id[:,2]
-    return(positions_x, positions_y, positions_z)
+# def positions_cells_reading(xml_file_with_cells_positions,real_id_cells):
+#     """
+#     Returns 3 numpy arrays, with the x, y and z positions of the cells, sorted by cell ids
+#     """
+#     cells_positions_xml_opened = minidom.parse(xml_file_with_cells_positions)
+#     cells_positions_xml_opened_with_cell_tag = cells_positions_xml_opened.getElementsByTagName('CELL')
+#     nb_cellules_xml = count_number_of_cells_in_xml_file(xml_file_with_cells_positions)
+#     ###
+#     positions_x=np.zeros(nb_cellules_xml)
+#     positions_y=np.zeros(nb_cellules_xml)
+#     positions_z=np.zeros(nb_cellules_xml)
+#     positions_and_id = np.zeros((nb_cellules_xml,4))
+#     row_nb = 0
+#     ###
+#     for parser_xml in cells_positions_xml_opened_with_cell_tag:
+#         positions_and_id[row_nb][3] = parser_xml.attributes['ID'].value
+#         row_nb += 1
+#     row_nb = 0
+#     for node in cells_positions_xml_opened_with_cell_tag:
+#         positions_x_xml = node.getElementsByTagName('x')
+#         positions_y_xml = node.getElementsByTagName('y')
+#         positions_z_xml = node.getElementsByTagName('z')
+#         for parser_xml in positions_x_xml:
+#             positions_and_id[row_nb][0] = parser_xml.firstChild.data
+#         for parser_xml in positions_y_xml:
+#             positions_and_id[row_nb][1] = parser_xml.firstChild.data
+#         for parser_xml in positions_z_xml:
+#             positions_and_id[row_nb][2] = parser_xml.firstChild.data
+#         row_nb += 1
+#     positions_and_id = positions_and_id[positions_and_id[:, 3].argsort()] #sorts the array by cells id
+#     index_cell_in_positions_and_id = 0
+#     indexes_to_delete = []
+#     for cell_id in column(positions_and_id,3):
+#         if not ((cell_id in real_id_cells)):
+#             indexes_to_delete.append(index_cell_in_positions_and_id)
+#         index_cell_in_positions_and_id += 1
+#     positions_and_id = np.delete(positions_and_id, indexes_to_delete, 0)
+#     positions_x = positions_and_id[:,0]
+#     positions_y = positions_and_id[:,1]
+#     positions_z = positions_and_id[:,2]
+#     return(positions_x, positions_y, positions_z)
 
 def determine_cells_in_2_spheroid_zones(positions_x, positions_y, positions_z, radius_zone_1, radius_zone_2, nb_cells):
     """
@@ -216,17 +216,6 @@ def determine_cells_in_2_spheroid_zones(positions_x, positions_y, positions_z, r
             zone_cell[index] = 2
             nb_cell_zone_2 += 1
     return(zone_cell, nb_cell_zone_1, nb_cell_zone_2)
-
-def count_number_of_cells_in_xml_file(xml_filename):
-    xml_file_opened = minidom.parse(xml_filename)
-    xml_file_opened_with_cell_tag = xml_file_opened.getElementsByTagName('CELL')
-    nb_cells = 0
-    for node in xml_file_opened_with_cell_tag:
-        xml_file_opened_with_cell_and_x_tag = node.getElementsByTagName('x')
-        for xml_parser in xml_file_opened_with_cell_and_x_tag:
-            # x = xml_parser.firstChild.data
-            nb_cells += 1
-    return(nb_cells)
 
 
 def subset_sorted_array(A,B):

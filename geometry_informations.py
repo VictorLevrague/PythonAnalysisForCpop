@@ -33,9 +33,9 @@ def cpop_real_cell_id_determination(file_with_deleted_cell_id_in_cpop, nb_cellul
 
     Returns
     ------
-    a sorted array with the cell ids that exist in the geometry
-    a test for the validity of the txt file for deleted ids
-    a sorted array with the deleted cells ids
+    real_id_cells : a sorted array with the cell ids that exist in the geometry
+    test_file_not_empty : a test for the validity of the txt file for deleted ids
+    deleted_id_txt : a sorted array with the deleted cells ids
     """
     test_file_not_empty = os.stat(file_with_deleted_cell_id_in_cpop).st_size
     if test_file_not_empty != 0:
@@ -109,15 +109,15 @@ try :
     os.makedirs(os.path.join("./GeometryInformations/" + geometry_name))
 except:
     pass
-masses_cytoplasms, masses_nuclei, masses_cells = masses_cells_reading(txt_cells_masses)
-np.savetxt("GeometryInformations/" + geometry_name + "/MassesCells.txt", (masses_cytoplasms,
-                                                                 masses_nuclei, masses_cells))
+# masses_cytoplasms, masses_nuclei, masses_cells = masses_cells_reading(txt_cells_masses)
+# np.savetxt("GeometryInformations/" + geometry_name + "/MassesCells.txt", (masses_cytoplasms,
+#                                                                  masses_nuclei, masses_cells))
 ###
-xml_geometry_file = "Cpop_Geom_XML/" + geometry_name + ".cfg" + ".xml"
-nb_cellules_xml = count_number_of_cells_in_xml_file(xml_geometry_file)
-txt_id_deleted_cells = "Cpop_Deleted_Cells_ID_Txt/" + "IDCell_" + geometry_name + ".txt"
-real_id_cells, test_file_not_empty, deleted_id_txt = cpop_real_cell_id_determination(txt_id_deleted_cells,
-                                                                                     nb_cellules_xml)
-positions_x, positions_y, positions_z = positions_cells_reading(xml_geometry_file, real_id_cells)
-np.savetxt("GeometryInformations/" + geometry_name + "/PositionsCells.txt", (positions_x,
-                                                                 positions_y, positions_z))
+# xml_geometry_file = "Cpop_Geom_XML/" + geometry_name + ".cfg" + ".xml"
+# nb_cellules_xml = count_number_of_cells_in_xml_file(xml_geometry_file)
+# txt_id_deleted_cells = "Cpop_Deleted_Cells_ID_Txt/" + "IDCell_" + geometry_name + ".txt"
+# real_id_cells, test_file_not_empty, deleted_id_txt = cpop_real_cell_id_determination(txt_id_deleted_cells,
+#                                                                                      nb_cellules_xml)
+# positions_x, positions_y, positions_z = positions_cells_reading(xml_geometry_file, real_id_cells)
+# np.savetxt("GeometryInformations/" + geometry_name + "/PositionsCells.txt", (positions_x,
+#                                                                  positions_y, positions_z))
