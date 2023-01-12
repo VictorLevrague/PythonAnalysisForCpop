@@ -192,6 +192,51 @@ def if_labeling_study() :
     Labeling_Percentage_Entry = tkinter.Entry(window, width=35)
     Labeling_Percentage_Entry.place(x=400, y=100)
 
+def id_deletion_of_root_outputs_with_errors():
+    """
+    Returns
+    ======
+        ids of simulations that returned a root output without errors when they were opened, in list format
+        ids of simulations that returned a root output without errors when they were opened, in numpy format
+        the number of errors encountered
+    """
+    nb_opened_files_for_one_simulation = indexe_of_root_output = 0
+    index_complete_simulation = 1
+    hfin = nb_files_for_one_complete_simulation
+    indexes_root_files_without_errors_temp, indexes_root_files_without_errors = ([] for nb_arrays in range(2))
+
+    while (indexe_of_root_output < (nb_complete_simulations * nb_files_for_one_complete_simulation)):
+        try:
+            if ((((indexe_of_root_output - 1) % nb_files_for_one_complete_simulation) == 0) & (indexe_of_root_output != 1)):
+                index_complete_simulation += 1
+
+            root_file_name = "Root/" + "outputMultiCellulaire/" + dossier_root + nom_fichier_root +\
+                            f"{indexe_of_root_output}" + "_t0" + ".root"
+            f1 = uproot.open(root_file_name)
+            d1 = f1['cell']['nameParticle'].array(library="np")
+            indexes_root_files_without_errors_temp.append(indexe_of_root_output)
+            nb_opened_files_for_one_simulation += 1
+            indexe_of_root_output += 1
+
+            if (nb_opened_files_for_one_simulation == nb_files_for_one_complete_simulation):
+                indexes_root_files_without_errors.append(indexes_root_files_without_errors_temp)
+                indexes_root_files_without_errors_temp = []
+                nb_opened_files_for_one_simulation = 0
+
+        except:
+            indexe_of_root_output = (index_complete_simulation * nb_files_for_one_complete_simulation) + 1
+            index_complete_simulation += 1
+            nb_opened_files_for_one_simulation = 0
+            indexes_root_files_without_errors_temp = []
+
+    indexes_root_files_without_errors_np = np.asarray(indexes_root_files_without_errors)
+    indexes_root_files_without_errors_np = np.resize(indexes_root_files_without_errors_np,
+                               (1,(len(indexes_root_files_without_errors_np[0]) * len(indexes_root_files_without_errors_np))))
+    indexes_root_files_without_errors_np = np.sort(indexes_root_files_without_errors_np[0])
+    nb_files_with_errors = nb_complete_simulations - len(indexes_root_files_without_errors)
+
+    return(indexes_root_files_without_errors, indexes_root_files_without_errors_np, nb_files_with_errors)
+
 def graphic_window():
     global window, radiovalue_study_type, distrib_name_cb, geom_cb, radionuclide_name_entry, nb_simulations_entry, \
            diffusion_list, number_particles_per_cell_list, cell_line_cb
@@ -269,19 +314,31 @@ def graphic_window():
 
     window.mainloop()
 
-def main():
+def create_folder_for_output_analysis_files():
+    global dossier_root, index_of_first_root_output, nom_dossier_pour_excel_analyse
     dossier_root = study_type_folder_name + "/" + available_data_name_file[data_cb.current()] + "/"
-
-    print("dossier_root", dossier_root)
-
-    nom_dossier_pour_excel_analyse = available_data_date[data_cb.current()] + "_" + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" + rn_name + "_diff" + bool_diff[diffusion_list.current()] + "_" + str(nb_particles_per_cell[number_particles_per_cell_list.current()]) + "ppc"
-
+    index_of_first_root_output = 0 #Works only if the indexes of root files start at 0
+    print("dossier_root : ", dossier_root)
+    nom_dossier_pour_excel_analyse = available_data_date[data_cb.current()] + "_" + "_" + str(spheroid_compaction) +\
+                                     "CP_" + str(r_sph) + "um_" + rn_name + "_diff" +\
+                                     bool_diff[diffusion_list.current()] + "_" +\
+                                     str(nb_particles_per_cell[number_particles_per_cell_list.current()]) + "ppc"
     try:
-        os.makedirs(os.path.join(
-            "/home/levrague/Documents/Python_these/AnalyseSurvie/AnalysisResults/" + study_type_folder_name,
-            nom_dossier_pour_excel_analyse))
+        os.makedirs(os.path.join("AnalysisResults"))
+    except FileExistsError:
+        print("Folder AnalysisResults already created")
+    try:
+        os.makedirs(os.path.join("AnalysisResults/" + study_type_folder_name))
     except:
-        print("Folder for analysis results already created")
+        print("Folder AnalysisResults/study_type_folder_name already created")
+    try:
+        os.makedirs(os.path.join("AnalysisResults/" + study_type_folder_name, nom_dossier_pour_excel_analyse))
+    except:
+        print("Folder for the required analysis results already created")
+    return None
+
+def main():
+    create_folder_for_output_analysis_files()
 
     print("selected date : ",available_data_date[data_cb.current()])
 
@@ -331,114 +388,37 @@ def main():
 
     ######################## Initialisation ############################################################
 
-    # Emax=8000 #Energie max des ions Hélium émis, en keV
-
-    Survie=np.array([1])
-    Survieg=np.array([1])
-    D=np.array([0])
-    Dmoy=np.array([0])
-    IncertSurvie=np.array([])
-    IncertSurvieg=np.array([])
-    Incert_dose=np.array([])
-    Edepmoy_n=np.array([])
+    Survie = Survieg = np.array([1])
+    D = Dmoy = np.array([0])
+    IncertSurvie = IncertSurvieg = Incert_dose = Edepmoy_n = np.array([])
 
 
     ######################## Root ##################################################################
 
-    s=np.array([])
-    sg=np.array([])
-    dosen=np.array([])
-    dosec=np.array([])
-    dosem=np.array([])
-    nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus=[]
+    s, sg, dosen, dosec, dosem = (np.array([]) for i in range(5))
+    nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus, surviel_append_sur_une_simu,\
+        surviel_append_sur_toutes_simus, survieg_append_sur_une_simu, survieg_append_sur_toutes_simus,\
+        dosen_append_sur_une_simu, dosen_append_sur_toutes_simus, dosec_append_sur_une_simu, dosec_append_sur_toutes_simus,\
+        dosem_append_sur_une_simu, dosem_append_sur_toutes_simus, dosen_c_append_sur_toutes_simus,\
+        Ratio_CrossFire_Noyau_sur_toutes_simus, Ratio_CrossFire_Noyau_sur_toutes_simus_zone1,\
+        Ratio_CrossFire_Noyau_sur_toutes_simus_zone2, Ei_Ef_sum_sur_toutes_simus,\
+        Nombre_particules_par_noyau_sur_toutes_simus, TCP_append_sur_toutes_simus, TCP_test_formula_append_sur_toutes_simus,\
+        SimulationId, Dose_Bio_append_sur_toutes_simus, test_spectre_diff =\
+        ([] for nb_arrays in range(22))
 
-    surviel_append_sur_une_simu=[]
-    surviel_append_sur_toutes_simus=[]
-    survieg_append_sur_une_simu=[]
-    survieg_append_sur_toutes_simus=[]
-    dosen_append_sur_une_simu=[]
-    dosen_append_sur_toutes_simus=[]
-    dosec_append_sur_une_simu=[]
-    dosec_append_sur_toutes_simus=[]
-    dosem_append_sur_une_simu=[]
-    dosem_append_sur_toutes_simus=[]
-    dosen_c_append_sur_toutes_simus=[]
-    Ratio_CrossFire_Noyau_sur_toutes_simus=[]
-    Ratio_CrossFire_Noyau_sur_toutes_simus_zone1=[]
-    Ratio_CrossFire_Noyau_sur_toutes_simus_zone2=[]
-    Ei_Ef_sum_sur_toutes_simus=[]
-    Nombre_particules_par_noyau_sur_toutes_simus=[]
-    TCP_append_sur_toutes_simus=[]
-    TCP_test_formula_append_sur_toutes_simus= []
-    SimulationId=[]
-    Dose_Bio_append_sur_toutes_simus = []
-
-    test_spectre_diff=[]
-
-
-    ###################### Ne pas toucher ############
-    indice_depart=0
-    hdepart=0
-    hfin=nb_division_simus
-    #################################################
-
-    #Suppression erreurs dans simus
-
-    indices_fichiers_sans_erreurs_temp=[]
-    indices_fichiers_sans_erreurs=[]
-    batch_simu=1
-    nb_fichiers_lus=0
-    ind=0
-
-    while (ind<(nb_simus*nb_division_simus)):
-        try :
-            if ((((ind-1)%nb_division_simus)==0) & (ind!=1)):
-                batch_simu+=1
-
-            #RootFileName1 = "Root/" + "outputMultiCellulaire/" + "31_01_2022_Intern_output/" + f"DistribHomogene{ind}" + ".root"
-            # RootFileName1 = "Root/" + "outputMultiCellulaire/" + dossier_root + nom_fichier_root + f"{ind}" + ".root"
-            RootFileName1 = "Root/" + "outputMultiCellulaire/" + dossier_root + nom_fichier_root + f"{ind}" + "_t0" + ".root"
-            print("dossier root : ", dossier_root)
-            #print(RootFileName1)
-            f1 = uproot.open(RootFileName1)
-            d1 = f1['cell']['nameParticle'].array(library="np")
-            indices_fichiers_sans_erreurs_temp.append(ind)
-            nb_fichiers_lus+=1
-            ind+=1
-
-            if (nb_fichiers_lus==nb_division_simus):
-                indices_fichiers_sans_erreurs.append(indices_fichiers_sans_erreurs_temp)
-                indices_fichiers_sans_erreurs_temp=[]
-                nb_fichiers_lus=0
-
-        except :
-            ind=(batch_simu*nb_division_simus)+1
-            batch_simu+=1
-            nb_fichiers_lus=0
-            indices_fichiers_sans_erreurs_temp=[]
-
-
-    indices_fichiers_sans_erreurs_np=np.asarray(indices_fichiers_sans_erreurs)
-    indices_fichiers_sans_erreurs_np=np.resize(indices_fichiers_sans_erreurs_np,(1,(len(indices_fichiers_sans_erreurs_np[0])*len(indices_fichiers_sans_erreurs_np))))
-    indices_fichiers_sans_erreurs_np=np.sort(indices_fichiers_sans_erreurs_np[0])
-
-    err = nb_simus - len(indices_fichiers_sans_erreurs)
+    indexes_root_files_without_errors, indexes_root_files_without_errors_np, nb_files_with_errors = \
+        id_deletion_of_root_outputs_with_errors()
 
     print("nb_cellules_reel : ", nb_cellules_reel)
 
-
     ##################################################
 
-    for i in range(indice_depart, len(indices_fichiers_sans_erreurs)):
-        sum_dose_Noyau_CrossFire=0
-        sum_dose_Noyau_NonCrossFire=0
-        sum_dose_Noyau_NonCrossFire_zone1=0
-        sum_dose_Noyau_NonCrossFire_zone2=0
-        sum_dose_Noyau_CrossFire_zone1=0
-        sum_dose_Noyau_CrossFire_zone2=0
+    for i in range(index_of_first_root_output, len(indexes_root_files_without_errors)):
+        sum_dose_Noyau_CrossFire = sum_dose_Noyau_NonCrossFire = sum_dose_Noyau_NonCrossFire_zone1 = \
+        sum_dose_Noyau_NonCrossFire_zone2 = sum_dose_Noyau_CrossFire_zone1 = sum_dose_Noyau_CrossFire_zone2 = 0
 
-        hdepart = indices_fichiers_sans_erreurs_np[i*nb_division_simus]
-        hfin = hdepart + nb_division_simus -1
+        hdepart = indexes_root_files_without_errors_np[i*nb_files_for_one_complete_simulation]
+        hfin = hdepart + nb_files_for_one_complete_simulation -1
 
         dosen_append_sur_une_simu_np = np.zeros(nb_cellules_reel)
         dosec_append_sur_une_simu_np = np.zeros(nb_cellules_reel)
@@ -448,32 +428,25 @@ def main():
         Ei_Ef_unique_sur_une_simu = np.zeros(nb_cellules_reel)
         Nombre_particules_par_noyau = np.zeros(nb_cellules_reel)
 
-        SimulationId.append(i) #fonctionne si il n'y a pas de multithreading
+        SimulationId.append(i) #working only if no multithreading
 
-        print("Simu " + f"{i+1}" + " sur " + f"{(len(indices_fichiers_sans_erreurs))}")
+        print("Simu " + f"{i+1}" + " sur " + f"{(len(indexes_root_files_without_errors))}")
 
-        for h in range((hdepart), (hfin+1), nb_division_pack_cellules):
-            #RootFileName = "Root/" + f"TumHomogene" + ".root"
-            RootFileName=[]
-            for ind_division_simus in range(0, nb_division_pack_cellules):
-                #RootFileName.append("Root/" + "outputMultiCellulaire/" + dossier_root + nom_fichier_root + f"{h + ind_division_simus}" + ".root")
-                RootFileName.append("Root/" + "outputMultiCellulaire/" + dossier_root + nom_fichier_root + f"{h + ind_division_simus}" + "_t0" + ".root")
+        for h in range((hdepart), (hfin+1), nb_group_of_cells_considered):
+            root_file_name = []
+            for ind_division_simus in range(0, nb_group_of_cells_considered):
+                root_file_name.append("Root/" + "outputMultiCellulaire/" + dossier_root +\
+                                    nom_fichier_root + f"{h + ind_division_simus}" + "_t0" + ".root")
 
-            print("RootFileName : ", RootFileName)
+            print("Root file name : ", root_file_name)
 
-            data=[]
-            ind_alphaplusplus=[]
-            ind_alphaplus=[]
-            ind_helium=[]
-            data_alpha=[]
-            ind_EndOfRun=[]
-            data_EdepCell=[]
-            indice_available_diffusion_info=0
-            indice_available_edep_sph_info=0
+            data, ind_alphaplusplus, ind_alphaplus, ind_helium, data_alpha, ind_EndOfRun, data_EdepCell = \
+                ([] for nb_arrays in range(7))
+            indice_available_diffusion_info = indice_available_edep_sph_info = 0
 
-            for ind_division_simus in range(0, nb_division_pack_cellules):
+            for ind_division_simus in range(0, nb_group_of_cells_considered):
 
-                f = uproot.open(RootFileName[ind_division_simus])
+                f = uproot.open(root_file_name[ind_division_simus])
                 d1 = f['cell']['nameParticle'].array(library="np")
                 d2 = f['cell']['Ei'].array(library="np")
                 d3 = f['cell']['Ef'].array(library="np")
@@ -508,7 +481,7 @@ def main():
 
                 data_alpha.append((np.concatenate(((data[ind_division_simus])[ind_alphaplusplus[ind_division_simus]],(data[ind_division_simus])[ind_alphaplus[ind_division_simus]],(data[ind_division_simus])[ind_helium[ind_division_simus]]))))
 
-                (data_alpha[ind_division_simus])["eventID"] += (nb_cellules_reel / nb_division_pack_cellules)*ind_division_simus
+                (data_alpha[ind_division_simus])["eventID"] += (nb_cellules_reel / nb_group_of_cells_considered)*ind_division_simus
 
                 ind_EndOfRun.append((data[ind_division_simus])["nameParticle"] == 'EndOfRun')
 
@@ -523,9 +496,7 @@ def main():
 
                 unique_data_alpha_eventID = np.unique(data_alpha['eventID'], return_index=True)
 
-                ind_diff_0 = 0
-                ind_diff_1=0
-                len_unique=0
+                ind_diff_0 = ind_diff_1 = len_unique = 0
 
                 indices_ab = unique_data_alpha_eventID[1]
 
@@ -568,7 +539,7 @@ def main():
 
             if test_file_not_empty != 0:
 
-                for ind_dose in range(0, nb_division_pack_cellules):
+                for ind_dose in range(0, nb_group_of_cells_considered):
                     elements_To_Remove = []
                     for ind_modif_id in range(0, len(data_EdepCell[ind_dose])):
                         if (((data_EdepCell[ind_dose])[ind_modif_id]["ID_Cell"]) in deleted_id_txt):
@@ -576,7 +547,7 @@ def main():
                             elements_To_Remove.append(ind_modif_id)
                     data_EdepCell[ind_dose] = np.delete(data_EdepCell[ind_dose], elements_To_Remove, 0)
 
-            for ind_dose in range(0, nb_division_pack_cellules):
+            for ind_dose in range(0, nb_group_of_cells_considered):
                 for ind_modif_id in range(0,len(data_EdepCell[ind_dose])):
                     index_ID_Cell = np.where(real_id_cells == (data_EdepCell[ind_dose])[ind_modif_id]["ID_Cell"])
                     (data_EdepCell[ind_dose])[ind_modif_id]["ID_Cell"] = Perfect_ID_Cells[index_ID_Cell]
@@ -596,17 +567,14 @@ def main():
 
             n1 = number_of_lethal_events_for_alpha_traversals(dn1_dE_continous_pre_calculated)
 
-            n=0
-            edep_n=0
-            edep_c = 0
-            edep_m = 0
+            n = edep_n = edep_c = edep_m = 0
 
             n_tab = (n1(Ei) - n1(Ef))
 
             # print("############################# Calcul de dose #######################################")
 
 
-            for ind_dose in range(0, nb_division_pack_cellules):
+            for ind_dose in range(0, nb_group_of_cells_considered):
                 dosen_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepn"]) * KEV_IN_J / masses_nuclei)
                 dosec_append_sur_une_simu_np += (((data_EdepCell[ind_dose])["fEdepc"]) * KEV_IN_J / masses_cytoplasms)
 
@@ -758,7 +726,7 @@ def main():
 
     nb_cells_suppr = 0
 
-    for i in range(0,(nb_simus-err)):
+    for i in range(0,(nb_complete_simulations - nb_files_with_errors)):
         ind_Noyau_Avec_Zero_Particules = [index for index, value in enumerate(Nombre_particules_par_noyau_sur_toutes_simus_np[i]) if value == 0]
 
         Nombre_particules_par_noyau_sur_toutes_simus_sans_zero_np = np.append(Nombre_particules_par_noyau_sur_toutes_simus_sans_zero_np, np.delete(Nombre_particules_par_noyau_sur_toutes_simus_np[i], ind_Noyau_Avec_Zero_Particules))
@@ -808,7 +776,7 @@ def main():
     incert_dose_bio=np.std(np.mean(Dose_Bio_append_sur_toutes_simus_np, axis=1))
 
     print()
-    print("nb de config avec erreur",err)
+    print("nb de config avec erreur", nb_files_with_errors)
     print()
 
     alpha=0.5
@@ -820,9 +788,9 @@ def main():
     # print(TCP_append_sur_toutes_simus_np)
 
     print("TCP =")
-    print(TCP, "+-", 2*np.std(TCP_append_sur_toutes_simus_np)/np.sqrt(nb_simus))
+    print(TCP, "+-", 2*np.std(TCP_append_sur_toutes_simus_np)/np.sqrt(nb_complete_simulations))
 
-    print("TCP test formula = ", TCP_formula2 , "+-", 2*np.std(TCP_test_formula_append_sur_toutes_simus_np)/np.sqrt(nb_simus))
+    print("TCP test formula = ", TCP_formula2 , "+-", 2*np.std(TCP_test_formula_append_sur_toutes_simus_np)/np.sqrt(nb_complete_simulations))
 
     print("EUD =")
     print(EUD)
@@ -876,7 +844,7 @@ def main():
         print(Dose_Spheroid[0], "Gy")
 
     print("Nombre de simus fonctionnelles = ")
-    print(nb_simus-err)
+    print(nb_complete_simulations - nb_files_with_errors)
 
     print()
 
@@ -902,7 +870,7 @@ def main():
 
 def add_new_buttons_to_graphic_window():
     global r_sph, nom_config, spheroid_compaction, xml_geom, nb_cellules_xml, cell_compartment_radionuclide,\
-    nb_simus, nb_division_simus, nb_division_pack_cellules, SimulationName, study_type_folder_name,\
+    nb_complete_simulations, nb_files_for_one_complete_simulation, nb_group_of_cells_considered, SimulationName, study_type_folder_name,\
     bool_diff, rn_name, nb_particles_per_cell, type_cell, available_data_date, available_data_name_file, \
     data_cb, nom_fichier_root
 
@@ -928,15 +896,13 @@ def add_new_buttons_to_graphic_window():
 
     study_type = radiovalue_study_type.get()  # 0 for internalization study, 1 for labeling study
 
-    nb_simus = int(nb_simulations_entry.get())  # Correspond au nombre de simulations complètes lancées, c'est à dire le nombre de seeds différentes lancées. C'est ce qui va déterminer la statistique obtenue
-    nb_division_simus = 1  # Pour du multi-threading "à la main", cela correspond au nombre de jobs en lequel est divisé une simulation complète.
-    # Sinon, mettre 1.
-
-    # Chouin 2012 : nbsimus=23, nb_division_simus=84
-    # Internalisation : nbsimus=37, nb_division_simus=27, nb_division_pack_cellules=3
-
-    nb_division_pack_cellules = 1  # Pour du multi-threading "à la main", cela correspond au nombre de "packs" de cellules qu'on a considéré pour envoyer des particules. Exemple : si l'indice vaut 2, ça veut dire que la moitié des jobs va envoyer des particules dans la première moitié des cellules, et l'autre moitié dans le reste des cellules.
-    # Sinon, mettre 1.
+    nb_complete_simulations = int(nb_simulations_entry.get())
+    nb_files_for_one_complete_simulation = 1    # Corresponds to the number of jobs/root outputs in which one complete
+                                                # simulation is divided. Usually one but can be changed for very long
+                                                # simulations.
+    nb_group_of_cells_considered = 1  #Usually 1 but can be changed for very long simulations.
+                                      # E.g. : if = 2, half the jobs were sent in 50% of the cells
+                                      #and the other jobs in the other 50% of cells.
 
     if (study_type == 0):
         SimulationName = cell_compartment_radionuclide
