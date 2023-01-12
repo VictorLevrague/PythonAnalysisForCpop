@@ -69,7 +69,7 @@ START_TIME = time.time()
 np.set_printoptions(threshold=sys.maxsize)
 #np.set_printoptions(threshold = False)
 
-global labeling_percentage, Labeling_Percentage_Entry, cell_compartment_radionuclide_Txt, distrib_name_cb
+global Labeling_Percentage_Entry, cell_compartment_radionuclide_Txt, distrib_name_cb
 
 def column(matrix, i):
     return [row[i] for row in matrix]
@@ -86,7 +86,6 @@ def conversion_energy_in_let(data_base, energy):
     """
 
     TABLES_CONVERSION_ENERGY_IN_LET = pandas.read_excel("E_TEL/conversion_tables_" + data_base +".xlsx").to_records()
-    print("E_TEL/conversion_tables_" + data_base +".xlsx")
     ENERGY_LIST = TABLES_CONVERSION_ENERGY_IN_LET['E(keV)']
     CORRESPONDING_LET_LIST = TABLES_CONVERSION_ENERGY_IN_LET['LET(keV/um)']
     continuous_function_to_convert_energy_in_let = interpolate.interp1d(ENERGY_LIST, CORRESPONDING_LET_LIST, fill_value="extrapolate", kind= "linear")
@@ -183,6 +182,7 @@ def if_internalization_study():
     distrib_name_cb.place(x=400, y=100)
 
 def if_labeling_study() :
+    global labeling_percentage,Labeling_Percentage_Entry
     if cell_compartment_radionuclide_Txt.winfo_exists():
         cell_compartment_radionuclide_Txt.destroy()
     if distrib_name_cb.winfo_exists():
@@ -239,7 +239,8 @@ def id_deletion_of_root_outputs_with_errors():
 
 def graphic_window():
     global window, radiovalue_study_type, distrib_name_cb, geom_cb, radionuclide_name_entry, nb_simulations_entry, \
-           diffusion_list, number_particles_per_cell_list, cell_line_cb
+           diffusion_list, number_particles_per_cell_list, cell_line_cb, cell_compartment_radionuclide_Txt, \
+           radiovalue_verbose
 
     window = tkinter.Tk()
     window.geometry("1000x700")
@@ -308,6 +309,14 @@ def graphic_window():
     cell_line_cb.current(0)
     cell_line_cb.place(x=400, y=400)
 
+    verbose_txt = tkinter.Label(window, text = "Verbose :", fg='green')
+    verbose_txt.place (x=825, y=200)
+    radiovalue_verbose=tkinter.IntVar()
+    radiovalue_verbose.set(0)
+    radiovalue_verbose_no=tkinter.Radiobutton(window, text="No", variable=radiovalue_verbose,value=0)
+    radiovalue_verbose_yes=tkinter.Radiobutton(window, text="Yes", variable=radiovalue_verbose,value=1)
+    radiovalue_verbose_yes.place(x=775,y=250)
+    radiovalue_verbose_no.place(x=875, y=250)
 
     Validate = tkinter.Button(window, text = "Validate", command = add_new_buttons_to_graphic_window)
     Validate.place(x=480, y=450)
@@ -318,7 +327,6 @@ def create_folder_for_output_analysis_files():
     global dossier_root, index_of_first_root_output, nom_dossier_pour_excel_analyse
     dossier_root = study_type_folder_name + "/" + available_data_name_file[data_cb.current()] + "/"
     index_of_first_root_output = 0 #Works only if the indexes of root files start at 0
-    print("dossier_root : ", dossier_root)
     nom_dossier_pour_excel_analyse = available_data_date[data_cb.current()] + "_" + "_" + str(spheroid_compaction) +\
                                      "CP_" + str(r_sph) + "um_" + rn_name + "_diff" +\
                                      bool_diff[diffusion_list.current()] + "_" +\
@@ -338,65 +346,45 @@ def create_folder_for_output_analysis_files():
         print("Folder for the required analysis results already created")
     return None
 
-def main():
-    create_folder_for_output_analysis_files()
-
-    print("selected date : ",available_data_date[data_cb.current()])
-
-
-    ######################## Conversion des alpha en dn1/dE ########################################
-
-    dn1_dE_continous_pre_calculated = dn1_dE_continous()
-
-    ##################### Gestion des ID de CPOP ##################################################
-
-    txt_id_deleted_cells = "Cpop_Deleted_Cells_ID_Txt/" + "IDCell_" + nom_config + ".txt"
-
-    real_id_cells, test_file_not_empty, deleted_id_txt = geometry_informations.cpop_real_cell_id_determination(txt_id_deleted_cells, nb_cellules_xml)
-
-    nb_cellules_reel = len(real_id_cells)
-
+def print_geometry_informations():
     print("nb_cellules_reel : ", nb_cellules_reel)
-
-    Perfect_ID_Cells = np.arange(0,nb_cellules_reel)
-
-
-    ###################### Lecture Geométrie #####################################
-
-    ###### Masses #######
-
-    txt_cells_masses="Cpop_Masse_Txt/" + "MassesCell_" + nom_config + ".txt"
-
-    masses_cytoplasms, masses_nuclei, masses_cells = geometry_informations.masses_cells_reading(txt_cells_masses)
-
-    r_tum = float(r_sph) * 10**(-6) #in meters
-    masse_tum=((4/3)*np.pi*r_tum**3)*1000 #in kg
-
     print("cell_packing = ", sum(masses_cells)/masse_tum)
     print("masse_tum = ", masse_tum)
+    print("nb_cell_zone_1", nb_cell_zone_1)
+    print("nb_cell_zone_2", nb_cell_zone_2)
+    print()
+    return None
 
+def main():
+    global nb_cellules_reel, masses_cells, masse_tum, nb_cell_zone_1, nb_cell_zone_2
+    create_folder_for_output_analysis_files()
+    dn1_dE_continous_pre_calculated = dn1_dE_continous()
+    ##################### Gestion des ID de CPOP ##################################################
+    txt_id_deleted_cells = "Cpop_Deleted_Cells_ID_Txt/" + "IDCell_" + nom_config + ".txt"
+    real_id_cells, test_file_not_empty, deleted_id_txt = geometry_informations.cpop_real_cell_id_determination(txt_id_deleted_cells, nb_cellules_xml)
+    nb_cellules_reel = len(real_id_cells)
+    Perfect_ID_Cells = np.arange(0,nb_cellules_reel)
+    ###################### Lecture Geométrie #####################################
+    ###### Masses #######
+    txt_cells_masses="Cpop_Masse_Txt/" + "MassesCell_" + nom_config + ".txt"
+    masses_cytoplasms, masses_nuclei, masses_cells = geometry_informations.masses_cells_reading(txt_cells_masses)
+    r_tum = float(r_sph) * 10**(-6) #in meters
+    masse_tum=((4/3)*np.pi*r_tum**3)*1000 #in kg
     ###### Positions ######
-
     positions_x, positions_y, positions_z = geometry_informations.positions_cells_reading(xml_geom, real_id_cells)
 
     zone_cell, nb_cell_zone_1, nb_cell_zone_2 = determine_cells_in_2_spheroid_zones(positions_x,
                                                     positions_y, positions_z,
                                                     radius_zone_1 = 50, radius_zone_2 = 95,
                                                     nb_cells = nb_cellules_reel)
-
-    print("nb_cell_zone_1", nb_cell_zone_1)
-    print("nb_cell_zone_2", nb_cell_zone_2)
-
+    if (radiovalue_verbose.get() == 1):
+        print_geometry_informations()
+    print("radiovalue_verbose = ", radiovalue_verbose.get())
     ######################## Initialisation ############################################################
-
     Survie = Survieg = np.array([1])
     D = Dmoy = np.array([0])
-    IncertSurvie = IncertSurvieg = Incert_dose = Edepmoy_n = np.array([])
-
-
+    s, sg, dosen, dosec, dosem, IncertSurvie, IncertSurvieg, Incert_dose, Edepmoy_n = (np.array([]) for i in range(9))
     ######################## Root ##################################################################
-
-    s, sg, dosen, dosec, dosem = (np.array([]) for i in range(5))
     nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus, surviel_append_sur_une_simu,\
         surviel_append_sur_toutes_simus, survieg_append_sur_une_simu, survieg_append_sur_toutes_simus,\
         dosen_append_sur_une_simu, dosen_append_sur_toutes_simus, dosec_append_sur_une_simu, dosec_append_sur_toutes_simus,\
@@ -409,8 +397,6 @@ def main():
 
     indexes_root_files_without_errors, indexes_root_files_without_errors_np, nb_files_with_errors = \
         id_deletion_of_root_outputs_with_errors()
-
-    print("nb_cellules_reel : ", nb_cellules_reel)
 
     ##################################################
 
@@ -513,12 +499,6 @@ def main():
 
                 print("% d'event sans diffusion = ", ind_diff_0/len_unique)
                 print("% d'event avec diffusion = ", ind_diff_1/len_unique)
-
-            ####################################################################################################
-
-            print()
-
-            print(" data avec Ei < Ef : ", data_alpha[np.where(data_alpha["Ei"] < data_alpha["Ef"])])
 
             print()
 
@@ -879,19 +859,15 @@ def add_new_buttons_to_graphic_window():
                  "Elg095um50CP", "Elg095um75CP", "Elg095um75CP_2", "Elg100um40CP"]
     cp_list= [25, 50, 75]
     r_sph = geom_list[geom_cb.current()][3:6]
-    print("r_sph : ", r_sph)
-    print(float(r_sph))
 
     nom_config = (geom_list[geom_cb.current()])  # Les fichiers contenant les masses de toutes les cellules, et ceux des ID de cellules supprimés de CPOP à G4, sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
 
     # cp = (cp_list[geom_cb.current()])
     spheroid_compaction = geom_list[geom_cb.current()][8:10]
-    print("spheroid_compaction : ", spheroid_compaction)
 
     xml_geom = "Cpop_Geom_XML/" + nom_config + ".cfg" + ".xml"
 
     nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)  # Nombre de cellules contenues dans le fichier .xml de géométrie créé par CPOP
-    print("nb_cellules_xml", nb_cellules_xml)
 
     cell_compartment_radionuclide = (distrib_name_cb.get())
 
@@ -920,14 +896,11 @@ def add_new_buttons_to_graphic_window():
 
     output_folders_name = [f for f in os.listdir(output_path)]
 
-    print(output_folders_name)
-
     bool_diff = ["Yes","No"]
     rn_name = radionuclide_name_entry.get()
     nb_particles_per_cell = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "42"]
 
     type_cell = cell_line_cb.current()
-    print("type cell is number : ", type_cell)
 
     available_data_date = []
     available_data_name_file = []
@@ -937,11 +910,6 @@ def add_new_buttons_to_graphic_window():
             # available_data.append(output_folders_name[i])
             available_data_date.append(output_folders_name[i][0:10])
             available_data_name_file.append(output_folders_name[i])
-
-    print(available_data_name_file)
-
-    # window_data = tkinter.Toplevel()
-    # window_data.geometry("700x300")
 
     List_data_Txt = tkinter.Label(window, text="Data available :", fg='blue')
     List_data_Txt.place(x=100, y=510)
