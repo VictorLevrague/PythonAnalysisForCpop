@@ -322,7 +322,8 @@ def create_folder_for_output_analysis_files():
     nom_dossier_pour_excel_analyse = available_data_date[data_cb.current()] + "_" + "_" + str(spheroid_compaction) +\
                                      "CP_" + str(r_sph) + "um_" + rn_name + "_diff" +\
                                      bool_diff[diffusion_list.current()] + "_" +\
-                                     str(nb_particles_per_cell[number_particles_per_cell_list.current()]) + "ppc"
+                                     str(nb_particles_per_cell[number_particles_per_cell_list.current()]) + "ppc" + \
+                                     "_" + cell_line_cb.get()
     try:
         os.makedirs(os.path.join("AnalysisResults"))
     except FileExistsError:
