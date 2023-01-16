@@ -1,21 +1,15 @@
 """
 Script allowing to convert .root raw data of Geant4 in data of interest
 
-Usage
-======
-    Run script to open graphical interface
-
 Returns
-=======
+-------
     doses to cell nucleus and cytoplams
     cell survivals
     cross-fire information
 """
 
-# from geometry_informations import *
 import geometry_informations
 import math
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas
@@ -28,7 +22,6 @@ import tkinter
 import tkinter.ttk
 import uproot
 import warnings
-from xml.dom import minidom
 
 warnings.filterwarnings("error")
 
@@ -45,7 +38,7 @@ energies_valid_for_alpha_beta_approximation = np.arange(200,90001)
 # W = [3.05093045, 2.87758559, 3.20398251]
 # XC = [0.46545609, 0.38084839, 0.48452192]
 
-################ Fit parameters from 2022/12/16 ################### TO DO : evaluate differences with previous parameters
+################ Fit parameters from 2022/12/16 ################# TO DO : evaluate differences with previous parameters
 Y0 = [0.06486164, 0.02722410, 0.04221387] #HSG, V79, CHO-K1
 A = [-0.26336407, -0.11801719, -0.19357751]
 W = [3.39940424, 2.97713123, 3.90866411]
@@ -82,7 +75,7 @@ def conversion_energy_in_let(data_base, energy):
 
     """
 
-    TABLES_CONVERSION_ENERGY_IN_LET = pandas.read_excel("E_TEL/conversion_tables_" + data_base +".xlsx").to_records()
+    TABLES_CONVERSION_ENERGY_IN_LET = pandas.read_excel(f"E_TEL/conversion_tables_{data_base}.xlsx").to_records()
     ENERGY_LIST = TABLES_CONVERSION_ENERGY_IN_LET['E(keV)']
     CORRESPONDING_LET_LIST = TABLES_CONVERSION_ENERGY_IN_LET['LET(keV/um)']
     continuous_function_to_convert_energy_in_let = interpolate.interp1d(ENERGY_LIST, CORRESPONDING_LET_LIST, fill_value="extrapolate", kind= "linear")
@@ -139,32 +132,32 @@ def determine_cells_in_2_spheroid_zones(positions_x, positions_y, positions_z, r
             nb_cell_zone_2 += 1
     return(zone_cell, nb_cell_zone_1, nb_cell_zone_2)
 
-def todo_histo():
-    histo_nb_noy_par_p = 0 # mettre 1 affiche l'histogramme du nombre de noyaux traversés par les particules
-    histo_edep_noy_par_p = 0 # mettre 1 affiche l'histogramme de l'énergie moyenne déposée par particule dans un noyau quand elle y rentre
-
-    if (histo_nb_noy_par_p==1) :
-        _, _, patches = plt.hist(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus_np, bins=100, edgecolor='white')
-
-        plt.xticks(fontsize=13.5)
-        plt.yticks(fontsize=13.5)
-        plt.xlabel('Nb of nuclei crossed by a particle',fontsize=15,fontname="Liberation Sans",fontweight='bold')
-        plt.ylabel('Occurence',fontsize=15,fontname="Liberation Sans",fontweight='bold')
-        #plt.title('Histogram of : Nb of nuclei crossed by a particle')
-        plt.grid(True)
-        plt.show()
-
-    if (histo_edep_noy_par_p==1) :
-        Edep_dans_noy_par_particule_np_histo=np.resize(Edep_dans_noy_par_particule_np,(1,len(Edep_dans_noy_par_particule_np)*len(Edep_dans_noy_par_particule_np[0])))
-        _, _, patches = plt.hist(Edep_dans_noy_par_particule_np_histo[0], bins=1000, edgecolor='black')
-
-        plt.xticks(fontsize=13.5)
-        plt.yticks(fontsize=13.5)
-        plt.xlabel('Edep by a particle in cell nucleus (keV)',fontsize=15,fontname="Liberation Sans",fontweight='bold')
-        plt.ylabel('Occurence',fontsize=15,fontname="Liberation Sans",fontweight='bold')
-        # plt.title('Histogram of : Edep by a particle in cell nucleus')
-        plt.grid(True)
-        plt.show()
+# def todo_histo():
+#     histo_nb_noy_par_p = 0 # mettre 1 affiche l'histogramme du nombre de noyaux traversés par les particules
+#     histo_edep_noy_par_p = 0 # mettre 1 affiche l'histogramme de l'énergie moyenne déposée par particule dans un noyau quand elle y rentre
+#
+#     if (histo_nb_noy_par_p==1) :
+#         _, _, patches = plt.hist(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus_np, bins=100, edgecolor='white')
+#
+#         plt.xticks(fontsize=13.5)
+#         plt.yticks(fontsize=13.5)
+#         plt.xlabel('Nb of nuclei crossed by a particle',fontsize=15,fontname="Liberation Sans",fontweight='bold')
+#         plt.ylabel('Occurence',fontsize=15,fontname="Liberation Sans",fontweight='bold')
+#         #plt.title('Histogram of : Nb of nuclei crossed by a particle')
+#         plt.grid(True)
+#         plt.show()
+#
+#     if (histo_edep_noy_par_p==1) :
+#         Edep_dans_noy_par_particule_np_histo=np.resize(Edep_dans_noy_par_particule_np,(1,len(Edep_dans_noy_par_particule_np)*len(Edep_dans_noy_par_particule_np[0])))
+#         _, _, patches = plt.hist(Edep_dans_noy_par_particule_np_histo[0], bins=1000, edgecolor='black')
+#
+#         plt.xticks(fontsize=13.5)
+#         plt.yticks(fontsize=13.5)
+#         plt.xlabel('Edep by a particle in cell nucleus (keV)',fontsize=15,fontname="Liberation Sans",fontweight='bold')
+#         plt.ylabel('Occurence',fontsize=15,fontname="Liberation Sans",fontweight='bold')
+#         # plt.title('Histogram of : Edep by a particle in cell nucleus')
+#         plt.grid(True)
+#         plt.show()
 
 def if_internalization_study():
     if labeling_percentage.winfo_exists():
@@ -352,46 +345,46 @@ def print_geometry_informations():
     print()
     return None
 
-def print_results():
-    print("TCP =")
-    print(TCP, "+-", 2*np.std(TCP_append_sur_toutes_simus_np)/np.sqrt(nb_complete_simulations))
-    print("TCP test formula = ", TCP_formula2 , "+-", 2*np.std(TCP_test_formula_append_sur_toutes_simus_np)/np.sqrt(nb_complete_simulations))
-    print("EUD =")
-    print(EUD)
-    print("Min dose totale absorbée=")
-    print(np.mean(np.min(dosen_c_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.min(dosen_c_append_sur_toutes_simus_np,axis=1)))
-    print("Max dose totale absorbée=")
-    print(np.mean(np.max(dosen_c_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.max(dosen_c_append_sur_toutes_simus_np,axis=1)))
-    # Les 2 méthodes de calcul de la moyenne sont les mêmes, mais la seconde calcule correctement l'incertitude
-    print("Moyenne des doses absorbées aux noyaux=")
-    print(np.mean(np.mean(dosen_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(dosen_append_sur_toutes_simus_np,axis=1)))
-    print("Moyenne des doses absorbées aux cytoplasmes=")
-    print(np.mean(np.mean(dosec_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(dosec_append_sur_toutes_simus_np,axis=1)))
-    print("Moyenne des doses absorbées aux cellules=")
-    print(np.mean(np.mean(dosen_c_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(dosen_c_append_sur_toutes_simus_np,axis=1)))
-    print("Sum dose cellules = ")
-    print(np.sum(dosen_c_tot))
-    print("Energie moyenne déposée par une particule quand elle touche un noyau=")
-    print(mean_Edep_dans_noy_par_particule, "+-", np.std(Edep_dans_noy_par_particule_np)/np.sqrt(len(Edep_dans_noy_par_particule_np)))
-    print("Nombre moyen de noyaux traversés par une particule en moyenne=")
-    print(np.mean(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus), "+-", np.std(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus)/np.sqrt(len(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus))) #Pour distribution, voir histo
-    print("Cross-fire dose au noyau en moyenne =")
-    print(np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_np)*100, "%", "+-", 2*np.std(Ratio_CrossFire_Noyau_sur_toutes_simus_np)*100, "%")
-    print("Cross-fire dose au noyau en moyenne, dans la zone 1 =")
-    print(np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_zone1_np)*100, "%", "+-", 2*np.std(Ratio_CrossFire_Noyau_sur_toutes_simus_zone1_np)*100, "%")
-    print("Cross-fire dose au noyau en moyenne, dans la zone 2 =")
-    print(np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_zone2_np)*100, "%", "+-", 2*np.std(Ratio_CrossFire_Noyau_sur_toutes_simus_zone2_np)*100, "%")
-    print("Moyenne des survies cellulaires=")
-    print(np.mean(np.mean(surviel_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(surviel_append_sur_toutes_simus_np,axis=1)))
-    print("Moyenne des doses biologiques")
-    print(np.mean(np.mean(Dose_Bio_append_sur_toutes_simus_np, axis=1)), "+-", 2 * np.std(np.mean(Dose_Bio_append_sur_toutes_simus_np, axis=1)))
-    print("Max des doses biologiques")
-    print(np.mean(np.max(Dose_Bio_append_sur_toutes_simus_np, axis=1)), "+-",2 * np.std(np.max(Dose_Bio_append_sur_toutes_simus_np, axis=1)))
-    if(indice_available_edep_sph_info):
-        print("Dose sphéroïde")
-        print(Dose_Spheroid[0], "Gy")
-
-    return None
+# def print_results():
+#     print("TCP =")
+#     print(TCP, "+-", 2*np.std(TCP_append_sur_toutes_simus_np)/np.sqrt(nb_complete_simulations))
+#     print("TCP test formula = ", TCP_formula2 , "+-", 2*np.std(TCP_test_formula_append_sur_toutes_simus_np)/np.sqrt(nb_complete_simulations))
+#     print("EUD =")
+#     print(EUD)
+#     print("Min dose totale absorbée=")
+#     print(np.mean(np.min(dosen_c_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.min(dosen_c_append_sur_toutes_simus_np,axis=1)))
+#     print("Max dose totale absorbée=")
+#     print(np.mean(np.max(dosen_c_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.max(dosen_c_append_sur_toutes_simus_np,axis=1)))
+#     # Les 2 méthodes de calcul de la moyenne sont les mêmes, mais la seconde calcule correctement l'incertitude
+#     print("Moyenne des doses absorbées aux noyaux=")
+#     print(np.mean(np.mean(dosen_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(dosen_append_sur_toutes_simus_np,axis=1)))
+#     print("Moyenne des doses absorbées aux cytoplasmes=")
+#     print(np.mean(np.mean(dosec_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(dosec_append_sur_toutes_simus_np,axis=1)))
+#     print("Moyenne des doses absorbées aux cellules=")
+#     print(np.mean(np.mean(dosen_c_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(dosen_c_append_sur_toutes_simus_np,axis=1)))
+#     print("Sum dose cellules = ")
+#     print(np.sum(dosen_c_tot))
+#     print("Energie moyenne déposée par une particule quand elle touche un noyau=")
+#     print(mean_Edep_dans_noy_par_particule, "+-", np.std(Edep_dans_noy_par_particule_np)/np.sqrt(len(Edep_dans_noy_par_particule_np)))
+#     print("Nombre moyen de noyaux traversés par une particule en moyenne=")
+#     print(np.mean(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus), "+-", np.std(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus)/np.sqrt(len(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus))) #Pour distribution, voir histo
+#     print("Cross-fire dose au noyau en moyenne =")
+#     print(np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_np)*100, "%", "+-", 2*np.std(Ratio_CrossFire_Noyau_sur_toutes_simus_np)*100, "%")
+#     print("Cross-fire dose au noyau en moyenne, dans la zone 1 =")
+#     print(np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_zone1_np)*100, "%", "+-", 2*np.std(Ratio_CrossFire_Noyau_sur_toutes_simus_zone1_np)*100, "%")
+#     print("Cross-fire dose au noyau en moyenne, dans la zone 2 =")
+#     print(np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_zone2_np)*100, "%", "+-", 2*np.std(Ratio_CrossFire_Noyau_sur_toutes_simus_zone2_np)*100, "%")
+#     print("Moyenne des survies cellulaires=")
+#     print(np.mean(np.mean(surviel_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(surviel_append_sur_toutes_simus_np,axis=1)))
+#     print("Moyenne des doses biologiques")
+#     print(np.mean(np.mean(Dose_Bio_append_sur_toutes_simus_np, axis=1)), "+-", 2 * np.std(np.mean(Dose_Bio_append_sur_toutes_simus_np, axis=1)))
+#     print("Max des doses biologiques")
+#     print(np.mean(np.max(Dose_Bio_append_sur_toutes_simus_np, axis=1)), "+-",2 * np.std(np.max(Dose_Bio_append_sur_toutes_simus_np, axis=1)))
+#     if(indice_available_edep_sph_info):
+#         print("Dose sphéroïde")
+#         print(Dose_Spheroid[0], "Gy")
+#
+#     return None
 
 def main():
     global nb_cellules_reel, masses_cells, masse_tum, nb_cell_zone_1, nb_cell_zone_2
