@@ -21,9 +21,6 @@ import time
 import tkinter
 import tkinter.ttk
 import uproot
-import warnings
-
-warnings.filterwarnings("error")
 
 KEV_IN_J = 1.60218 * 1e-16
 WATER_DENSITY = 1e-15  #kg/µm³
@@ -88,7 +85,7 @@ def beta_nanox(E,type_cell): #E in MeV/nucleon
 def alpha_nanox(E,type_cell):
     conv_LET_E_SRIM = conversion_energy_in_let("SRIM", E)
     b = BETAG[type_cell] * (((UNIT_COEFFICIENT_A * conv_LET_E_SRIM * 0.8)/SIG0[type_cell]) ** 2)
-    return ((SIG0[type_cell] +((UNIT_COEFFICIENT_A * conv_LET_E_SRIM * (b-1))*np.sqrt(beta_nanox(E/4000,type_cell)/(b+(b*b)/2))))/(UNIT_COEFFICIENT_A * conv_LET_E_SRIM))
+    return (SIG0[type_cell] +((UNIT_COEFFICIENT_A * conv_LET_E_SRIM * (b-1))*np.sqrt(beta_nanox(E/4000,type_cell)/(b+(b*b)/2))))/(UNIT_COEFFICIENT_A * conv_LET_E_SRIM)
 
 def dn1_dE_continous():
     conversion_energy_in_let_srim_alpha_beta_approximation_range = \
@@ -124,13 +121,13 @@ def determine_cells_in_2_spheroid_zones(positions_x, positions_y, positions_z, r
     nb_cell_zone_2 = 0
     index_list = np.arange(0,nb_cells)
     for index in index_list:
-        if (positions_cell[index] < radius_zone_1):
+        if positions_cell[index] < radius_zone_1:
             zone_cell[index] = 1
             nb_cell_zone_1 += 1
-        elif (positions_cell[index] < radius_zone_2):
+        elif positions_cell[index] < radius_zone_2:
             zone_cell[index] = 2
             nb_cell_zone_2 += 1
-    return(zone_cell, nb_cell_zone_1, nb_cell_zone_2)
+    return zone_cell, nb_cell_zone_1, nb_cell_zone_2
 
 # def todo_histo():
 #     histo_nb_noy_par_p = 0 # mettre 1 affiche l'histogramme du nombre de noyaux traversés par les particules
@@ -195,20 +192,21 @@ def id_deletion_of_root_outputs_with_errors():
     hfin = nb_files_for_one_complete_simulation
     indexes_root_files_without_errors_temp, indexes_root_files_without_errors = ([] for nb_arrays in range(2))
 
-    while (indexe_of_root_output < (nb_complete_simulations * nb_files_for_one_complete_simulation)):
+    while indexe_of_root_output < (nb_complete_simulations * nb_files_for_one_complete_simulation):
         try:
-            if ((((indexe_of_root_output - 1) % nb_files_for_one_complete_simulation) == 0) & (indexe_of_root_output != 1)):
+            if (((indexe_of_root_output - 1) % nb_files_for_one_complete_simulation) == 0) & (indexe_of_root_output != 1):
                 index_complete_simulation += 1
 
-            root_file_name = "Root/" + "outputMultiCellulaire/" + dossier_root + nom_fichier_root +\
-                            f"{indexe_of_root_output}" + "_t0" + ".root"
+            # root_file_name = "Root/" + "outputMultiCellulaire/" + dossier_root + nom_fichier_root +\
+            #                 f"{indexe_of_root_output}" + "_t0" + ".root"
+            root_file_name = f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{indexe_of_root_output}_t0.root"
             f1 = uproot.open(root_file_name)
             d1 = f1['cell']['nameParticle'].array(library="np")
             indexes_root_files_without_errors_temp.append(indexe_of_root_output)
             nb_opened_files_for_one_simulation += 1
             indexe_of_root_output += 1
 
-            if (nb_opened_files_for_one_simulation == nb_files_for_one_complete_simulation):
+            if nb_opened_files_for_one_simulation == nb_files_for_one_complete_simulation:
                 indexes_root_files_without_errors.append(indexes_root_files_without_errors_temp)
                 indexes_root_files_without_errors_temp = []
                 nb_opened_files_for_one_simulation = 0
@@ -225,7 +223,7 @@ def id_deletion_of_root_outputs_with_errors():
     indexes_root_files_without_errors_np = np.sort(indexes_root_files_without_errors_np[0])
     nb_files_with_errors = nb_complete_simulations - len(indexes_root_files_without_errors)
 
-    return(indexes_root_files_without_errors, indexes_root_files_without_errors_np, nb_files_with_errors)
+    return indexes_root_files_without_errors, indexes_root_files_without_errors_np, nb_files_with_errors
 
 def graphic_window():
     global window, radiovalue_study_type, distrib_name_cb, geom_cb, radionuclide_name_entry, nb_simulations_entry, \
@@ -317,11 +315,18 @@ def create_folder_for_output_analysis_files():
     global dossier_root, index_of_first_root_output, nom_dossier_pour_excel_analyse
     dossier_root = study_type_folder_name + "/" + available_data_name_file[data_cb.current()] + "/"
     index_of_first_root_output = 0 #Works only if the indexes of root files start at 0
-    nom_dossier_pour_excel_analyse = available_data_date[data_cb.current()] + "_" + "_" + str(spheroid_compaction) +\
-                                     "CP_" + str(r_sph) + "um_" + rn_name + "_diff" +\
-                                     bool_diff[diffusion_list.current()] + "_" +\
-                                     str(nb_particles_per_cell[number_particles_per_cell_list.current()]) + "ppc" + \
-                                     "_" + cell_line_cb.get()
+    # nom_dossier_pour_excel_analyse = available_data_date[data_cb.current()] + "_" + "_" + str(spheroid_compaction) +\
+    #                                  "CP_" + str(r_sph) + "um_" + rn_name + "_diff" +\
+    #                                  bool_diff[diffusion_list.current()] + "_" +\
+    #                                  str(nb_particles_per_cell[number_particles_per_cell_list.current()]) + "ppc" + \
+    #                                  "_" + cell_line_cb.get()
+    nom_dossier_pour_excel_analyse = f"{available_data_date[data_cb.current()]}__{spheroid_compaction}CP_{r_sph}um_" \
+                                     f"{rn_name}_diff{bool_diff[diffusion_list.current()]}_" \
+                                     f"{nb_particles_per_cell[number_particles_per_cell_list.current()]}ppc_" \
+                                     f"{cell_line_cb.get()}"
+
+    print("nom_dossier_pour_excel_analyse : ", nom_dossier_pour_excel_analyse)
+
     try:
         os.makedirs(os.path.join("AnalysisResults"))
     except FileExistsError:
@@ -409,7 +414,7 @@ def main():
                                                     positions_y, positions_z,
                                                     radius_zone_1 = 50, radius_zone_2 = 95,
                                                     nb_cells = nb_cellules_reel)
-    if (verbose == 1):
+    if verbose == 1:
         print_geometry_informations()
     ######################## Initialisation ############################################################
     Survie = Survieg = np.array([1])
@@ -450,13 +455,13 @@ def main():
 
         print("Simu " + f"{i+1}" + " sur " + f"{(len(indexes_root_files_without_errors))}")
 
-        for h in range((hdepart), (hfin+1), nb_group_of_cells_considered):
+        for h in range(hdepart, (hfin+1), nb_group_of_cells_considered):
             root_file_name = []
             for ind_division_simus in range(0, nb_group_of_cells_considered):
                 root_file_name.append("Root/" + "outputMultiCellulaire/" + dossier_root +\
                                     nom_fichier_root + f"{h + ind_division_simus}" + "_t0" + ".root")
 
-            if (verbose == 1):
+            if verbose == 1:
                 print("Root file name : ", root_file_name)
 
             data, ind_alphaplusplus, ind_alphaplus, ind_helium, data_alpha, ind_EndOfRun, data_EdepCell = \
@@ -487,11 +492,11 @@ def main():
                     print("fEdep_sph not available on these data")
                     indice_available_edep_sph_info = 0
 
-                if (indice_available_diffusion_info == 0):
+                if indice_available_diffusion_info == 0:
                     data.append(np.core.records.fromarrays([d1, d2, d3, d4, d5, d6, d7, d8],names='nameParticle, Ei, Ef, ID_Cell, Cellule_D_Emission, eventID, fEdepn, fEdepc'))
-                elif (indice_available_diffusion_info == 1 and indice_available_edep_sph_info == 0):
+                elif indice_available_diffusion_info == 1 and indice_available_edep_sph_info == 0:
                     data.append(np.core.records.fromarrays([d1, d2, d3, d4, d5, d6, d7, d8, d9],names='nameParticle, Ei, Ef, ID_Cell, Cellule_D_Emission, eventID, fEdepn, fEdepc, indice_if_diffusion'))
-                elif (indice_available_diffusion_info == 1 and indice_available_edep_sph_info == 1):
+                elif indice_available_diffusion_info == 1 and indice_available_edep_sph_info == 1:
                     data.append(np.core.records.fromarrays([d1, d2, d3, d4, d5, d6, d7, d8, d9, d10],names='nameParticle, Ei, Ef, ID_Cell, Cellule_D_Emission, eventID, fEdepn, fEdepc, indice_if_diffusion, fEdep_sph'))
 
                 ind_alphaplusplus.append((data[ind_division_simus])["nameParticle"]=='alpha')
@@ -511,7 +516,7 @@ def main():
 
             ########################## Vérification diffusion aux bonnes énergies ###############################
 
-            if (indice_available_diffusion_info == 1):
+            if indice_available_diffusion_info == 1:
 
                 unique_data_alpha_eventID = np.unique(data_alpha['eventID'], return_index=True)
 
@@ -522,14 +527,14 @@ def main():
                 unique_data_alpha_ind_diff_corresponding_to_unique_event_id = np.take(data_alpha['indice_if_diffusion'], indices_ab)
 
                 for i in range(0,len(unique_data_alpha_ind_diff_corresponding_to_unique_event_id)):
-                    if (unique_data_alpha_ind_diff_corresponding_to_unique_event_id[i]==0):
+                    if unique_data_alpha_ind_diff_corresponding_to_unique_event_id[i] == 0:
                         ind_diff_0+=1
                         len_unique+=1
-                    elif (unique_data_alpha_ind_diff_corresponding_to_unique_event_id[i] == 1):
+                    elif unique_data_alpha_ind_diff_corresponding_to_unique_event_id[i] == 1:
                         ind_diff_1 += 1
                         len_unique += 1
 
-                if (verbose == 1):
+                if verbose == 1:
                     print("% d'event sans diffusion = ", ind_diff_0/len_unique)
                     print("% d'event avec diffusion = ", ind_diff_1/len_unique)
 
@@ -551,7 +556,7 @@ def main():
                 for ind_dose in range(0, nb_group_of_cells_considered):
                     elements_To_Remove = []
                     for ind_modif_id in range(0, len(data_EdepCell[ind_dose])):
-                        if (((data_EdepCell[ind_dose])[ind_modif_id]["ID_Cell"]) in deleted_id_txt):
+                        if ((data_EdepCell[ind_dose])[ind_modif_id]["ID_Cell"]) in deleted_id_txt:
                             # elements_To_Remove.append((data_EdepCell[ind_dose])[ind_modif_id])
                             elements_To_Remove.append(ind_modif_id)
                     data_EdepCell[ind_dose] = np.delete(data_EdepCell[ind_dose], elements_To_Remove, 0)
@@ -591,10 +596,10 @@ def main():
             count_cell_id = np.bincount((data_alpha["ID_Cell"]).astype(int))
             Ei_Ef_unique = np.bincount(data_alpha["ID_Cell"].astype(int), weights= Ei - Ef)
 
-            while (len(Ei_Ef_unique) < (nb_cellules_reel)):
+            while len(Ei_Ef_unique) < nb_cellules_reel:
                 Ei_Ef_unique = np.append(Ei_Ef_unique, 0)
 
-            while (len(count_cell_id) < (nb_cellules_reel)):
+            while len(count_cell_id) < nb_cellules_reel:
                 count_cell_id = np.append(count_cell_id, 0)
 
             Ei_Ef_unique_sur_une_simu += Ei_Ef_unique
@@ -609,7 +614,7 @@ def main():
             ind_NonCrossFire = data_alpha["ID_Cell"] == data_alpha["Cellule_D_Emission"]
             ind_CrossFire = data_alpha["ID_Cell"] != data_alpha["Cellule_D_Emission"]
 
-            if (indice_available_diffusion_info == 1):
+            if indice_available_diffusion_info == 1:
                 ind_NonCrossFire = ((data_alpha["ID_Cell"] == data_alpha["Cellule_D_Emission"]) & (data_alpha["indice_if_diffusion"]==0))
                 ind_CrossFire = ((data_alpha["ID_Cell"] != data_alpha["Cellule_D_Emission"]) & (data_alpha["indice_if_diffusion"]==1))
 
@@ -631,10 +636,10 @@ def main():
             Ei_Ef_unique_NonCrossFire = np.bincount(((data_alpha["ID_Cell"])[ind_NonCrossFire]).astype(int), weights=Ei[ind_NonCrossFire] - Ef[ind_NonCrossFire])
             Ei_Ef_unique_CrossFire = np.bincount(((data_alpha["ID_Cell"])[ind_CrossFire]).astype(int), weights=Ei[ind_CrossFire] - Ef[ind_CrossFire])
 
-            while (len(Ei_Ef_unique_NonCrossFire) < (nb_cellules_reel)):
+            while len(Ei_Ef_unique_NonCrossFire) < nb_cellules_reel:
                 Ei_Ef_unique_NonCrossFire = np.append(Ei_Ef_unique_NonCrossFire, 0)
 
-            while (len(Ei_Ef_unique_CrossFire) < (nb_cellules_reel)):
+            while len(Ei_Ef_unique_CrossFire) < nb_cellules_reel:
                 Ei_Ef_unique_CrossFire = np.append(Ei_Ef_unique_CrossFire, 0)
 
             Ei_Ef_unique_NonCrossFire_zone1 = Ei_Ef_unique_NonCrossFire[indice_zone1]
@@ -664,7 +669,7 @@ def main():
             # print("############################# Calcul de survie #######################################")
 
             n_unique=np.bincount(data_alpha["ID_Cell"].astype(int), weights=n_tab)
-            while (len(n_unique) < (nb_cellules_reel)):
+            while len(n_unique) < nb_cellules_reel:
                 n_unique=np.append(n_unique,0)
 
             n_unique_tot_sur_une_simu+=n_unique
@@ -834,7 +839,7 @@ def main():
     print("Max des doses biologiques")
     print(np.mean(np.max(Dose_Bio_append_sur_toutes_simus_np, axis=1)), "+-",2 * np.std(np.max(Dose_Bio_append_sur_toutes_simus_np, axis=1)))
 
-    if(indice_available_edep_sph_info):
+    if indice_available_edep_sph_info:
         print("Dose sphéroïde")
         print(Dose_Spheroid[0], "Gy")
 
@@ -898,10 +903,10 @@ def add_new_buttons_to_graphic_window():
                                       # E.g. : if = 2, half the jobs were sent in 50% of the cells
                                       #and the other jobs in the other 50% of cells.
 
-    if (study_type == 0):
+    if study_type == 0:
         SimulationName = cell_compartment_radionuclide
         study_type_folder_name = "Internalization"
-    elif (study_type == 1):
+    elif study_type == 1:
         LabelingPercentage_get = Labeling_Percentage_Entry.get()
         LabelingPercentage_name = str(LabelingPercentage_get) + "_Percent"
         SimulationName = LabelingPercentage_name
