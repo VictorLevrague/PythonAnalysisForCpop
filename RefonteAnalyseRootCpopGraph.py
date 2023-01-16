@@ -33,13 +33,10 @@ from xml.dom import minidom
 warnings.filterwarnings("error")
 
 KEV_IN_J = 1.60218 * 1e-16
-WATER_DENSITY = 1e-3  # 10-3 kg/cm³
-UNIT_COEFFICIENT = (KEV_IN_J / (WATER_DENSITY * (1e-4)))
-
-print(UNIT_COEFFICIENT)
+WATER_DENSITY = 1e-15  #kg/µm³
+UNIT_COEFFICIENT_A = KEV_IN_J / WATER_DENSITY # Gy.µm³.keV-1
 
 SIG0 = [49*np.pi, 24.01*np.pi, 34.81*np.pi] #From Mario calculations
-A_CST = 0.1602 #Gy μm3 keV−1
 energies_valid_for_alpha_beta_approximation = np.arange(200,90001)
 
 ################ Fit parameters used in article TCP RIV-alpha ###################
@@ -59,12 +56,12 @@ BETAG = [0.0961, 0.0405, 0.0625]  # constante de Monini et al. 2019
 
 Emax=8000 #Energie max des ions Hélium émis, en keV
 
-radius_cell_line = 7 * 1e-4  # Rayon du noyau de la lignée HSG
-surface_centerslice_cell_line = math.pi * radius_cell_line ** 2
-length_of_cylinderslice_cell = 1
+radius_cell_line = 7  # Rayon du noyau de la lignée HSG, en µm
+surface_centerslice_cell_line = math.pi * radius_cell_line ** 2 #µm²
+length_of_cylinderslice_cell = 1 #µm
 
 bins = 200
-START_TIME = time.time()
+START_TIME = time.perf_counter()
 
 np.set_printoptions(threshold=sys.maxsize)
 #np.set_printoptions(threshold = False)
@@ -97,16 +94,16 @@ def beta_nanox(E,type_cell): #E in MeV/nucleon
 
 def alpha_nanox(E,type_cell):
     conv_LET_E_SRIM = conversion_energy_in_let("SRIM", E)
-    b = BETAG[type_cell] * (((A_CST * conv_LET_E_SRIM * 0.8)/SIG0[type_cell]) ** 2)
-    return ((SIG0[type_cell] +((A_CST * conv_LET_E_SRIM * (b-1))*np.sqrt(beta_nanox(E/4000,type_cell)/(b+(b*b)/2))))/(A_CST * conv_LET_E_SRIM))
+    b = BETAG[type_cell] * (((UNIT_COEFFICIENT_A * conv_LET_E_SRIM * 0.8)/SIG0[type_cell]) ** 2)
+    return ((SIG0[type_cell] +((UNIT_COEFFICIENT_A * conv_LET_E_SRIM * (b-1))*np.sqrt(beta_nanox(E/4000,type_cell)/(b+(b*b)/2))))/(UNIT_COEFFICIENT_A * conv_LET_E_SRIM))
 
 def dn1_dE_continous():
     conversion_energy_in_let_srim_alpha_beta_approximation_range = \
         conversion_energy_in_let("SRIM", energies_valid_for_alpha_beta_approximation)
     conversion_energy_in_let_g4_alpha_beta_approximation_range = \
         conversion_energy_in_let("G4", energies_valid_for_alpha_beta_approximation)
-    dn1_dE = -np.log(1 - alpha_nanox(energies_valid_for_alpha_beta_approximation,0) \
-                     * UNIT_COEFFICIENT*conversion_energy_in_let_srim_alpha_beta_approximation_range \
+    dn1_dE = -np.log(1 - alpha_nanox(energies_valid_for_alpha_beta_approximation,type_cell) \
+                     * UNIT_COEFFICIENT_A*conversion_energy_in_let_srim_alpha_beta_approximation_range \
                      / surface_centerslice_cell_line) \
                      / (length_of_cylinderslice_cell * conversion_energy_in_let_g4_alpha_beta_approximation_range) #calculation of number of lethal events per keV, via Mario's approximations
     dn1_dE_interpolated = interpolate.interp1d(energies_valid_for_alpha_beta_approximation, dn1_dE, fill_value="extrapolate", kind="linear")
@@ -355,8 +352,50 @@ def print_geometry_informations():
     print()
     return None
 
+def print_results():
+    print("TCP =")
+    print(TCP, "+-", 2*np.std(TCP_append_sur_toutes_simus_np)/np.sqrt(nb_complete_simulations))
+    print("TCP test formula = ", TCP_formula2 , "+-", 2*np.std(TCP_test_formula_append_sur_toutes_simus_np)/np.sqrt(nb_complete_simulations))
+    print("EUD =")
+    print(EUD)
+    print("Min dose totale absorbée=")
+    print(np.mean(np.min(dosen_c_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.min(dosen_c_append_sur_toutes_simus_np,axis=1)))
+    print("Max dose totale absorbée=")
+    print(np.mean(np.max(dosen_c_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.max(dosen_c_append_sur_toutes_simus_np,axis=1)))
+    # Les 2 méthodes de calcul de la moyenne sont les mêmes, mais la seconde calcule correctement l'incertitude
+    print("Moyenne des doses absorbées aux noyaux=")
+    print(np.mean(np.mean(dosen_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(dosen_append_sur_toutes_simus_np,axis=1)))
+    print("Moyenne des doses absorbées aux cytoplasmes=")
+    print(np.mean(np.mean(dosec_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(dosec_append_sur_toutes_simus_np,axis=1)))
+    print("Moyenne des doses absorbées aux cellules=")
+    print(np.mean(np.mean(dosen_c_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(dosen_c_append_sur_toutes_simus_np,axis=1)))
+    print("Sum dose cellules = ")
+    print(np.sum(dosen_c_tot))
+    print("Energie moyenne déposée par une particule quand elle touche un noyau=")
+    print(mean_Edep_dans_noy_par_particule, "+-", np.std(Edep_dans_noy_par_particule_np)/np.sqrt(len(Edep_dans_noy_par_particule_np)))
+    print("Nombre moyen de noyaux traversés par une particule en moyenne=")
+    print(np.mean(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus), "+-", np.std(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus)/np.sqrt(len(nb_nucl_traversées_par_la_particule_tab_sur_toutes_simus))) #Pour distribution, voir histo
+    print("Cross-fire dose au noyau en moyenne =")
+    print(np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_np)*100, "%", "+-", 2*np.std(Ratio_CrossFire_Noyau_sur_toutes_simus_np)*100, "%")
+    print("Cross-fire dose au noyau en moyenne, dans la zone 1 =")
+    print(np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_zone1_np)*100, "%", "+-", 2*np.std(Ratio_CrossFire_Noyau_sur_toutes_simus_zone1_np)*100, "%")
+    print("Cross-fire dose au noyau en moyenne, dans la zone 2 =")
+    print(np.mean(Ratio_CrossFire_Noyau_sur_toutes_simus_zone2_np)*100, "%", "+-", 2*np.std(Ratio_CrossFire_Noyau_sur_toutes_simus_zone2_np)*100, "%")
+    print("Moyenne des survies cellulaires=")
+    print(np.mean(np.mean(surviel_append_sur_toutes_simus_np,axis=1)), "+-", 2*np.std(np.mean(surviel_append_sur_toutes_simus_np,axis=1)))
+    print("Moyenne des doses biologiques")
+    print(np.mean(np.mean(Dose_Bio_append_sur_toutes_simus_np, axis=1)), "+-", 2 * np.std(np.mean(Dose_Bio_append_sur_toutes_simus_np, axis=1)))
+    print("Max des doses biologiques")
+    print(np.mean(np.max(Dose_Bio_append_sur_toutes_simus_np, axis=1)), "+-",2 * np.std(np.max(Dose_Bio_append_sur_toutes_simus_np, axis=1)))
+    if(indice_available_edep_sph_info):
+        print("Dose sphéroïde")
+        print(Dose_Spheroid[0], "Gy")
+
+    return None
+
 def main():
     global nb_cellules_reel, masses_cells, masse_tum, nb_cell_zone_1, nb_cell_zone_2
+    verbose = radiovalue_verbose.get()
     create_folder_for_output_analysis_files()
     dn1_dE_continous_pre_calculated = dn1_dE_continous()
     ##################### Gestion des ID de CPOP ##################################################
@@ -377,9 +416,8 @@ def main():
                                                     positions_y, positions_z,
                                                     radius_zone_1 = 50, radius_zone_2 = 95,
                                                     nb_cells = nb_cellules_reel)
-    if (radiovalue_verbose.get() == 1):
+    if (verbose == 1):
         print_geometry_informations()
-    print("radiovalue_verbose = ", radiovalue_verbose.get())
     ######################## Initialisation ############################################################
     Survie = Survieg = np.array([1])
     D = Dmoy = np.array([0])
@@ -425,7 +463,8 @@ def main():
                 root_file_name.append("Root/" + "outputMultiCellulaire/" + dossier_root +\
                                     nom_fichier_root + f"{h + ind_division_simus}" + "_t0" + ".root")
 
-            print("Root file name : ", root_file_name)
+            if (verbose == 1):
+                print("Root file name : ", root_file_name)
 
             data, ind_alphaplusplus, ind_alphaplus, ind_helium, data_alpha, ind_EndOfRun, data_EdepCell = \
                 ([] for nb_arrays in range(7))
@@ -497,17 +536,13 @@ def main():
                         ind_diff_1 += 1
                         len_unique += 1
 
-                print("% d'event sans diffusion = ", ind_diff_0/len_unique)
-                print("% d'event avec diffusion = ", ind_diff_1/len_unique)
-
-            print()
+                if (verbose == 1):
+                    print("% d'event sans diffusion = ", ind_diff_0/len_unique)
+                    print("% d'event avec diffusion = ", ind_diff_1/len_unique)
 
             ####################### Modification des ID de CPOP ###################################
 
             ################ data_alpha #########################################
-
-            print("len(data_alpha) = ",  len(data_alpha))
-
             for ind_modif_id in range(0,len(data_alpha)):
                 index_ID_Cell = np.where(real_id_cells == data_alpha[ind_modif_id]["ID_Cell"])
                 data_alpha[ind_modif_id]["ID_Cell"] = Perfect_ID_Cells[index_ID_Cell]
@@ -641,12 +676,6 @@ def main():
 
             n_unique_tot_sur_une_simu+=n_unique
 
-        print()
-
-        print(" data avec Ei < Ef : ", data_alpha[np.where(data_alpha["Ei"]<data_alpha["Ef"])])
-
-        print()
-
         sum_dose_Noyau_tot=sum_dose_Noyau_CrossFire+sum_dose_Noyau_NonCrossFire
         Ratio_CrossFire_Noyau_sur_une_simu=sum_dose_Noyau_CrossFire/sum_dose_Noyau_tot
         Ratio_CrossFire_Noyau_sur_toutes_simus.append(Ratio_CrossFire_Noyau_sur_une_simu)
@@ -668,8 +697,6 @@ def main():
 
         alpha_ref = 0.313  # HSG
         beta_ref = 0.0615  # HSG
-
-        print()
 
         Dose_Bio_append_sur_une_simu = (np.sqrt(alpha_ref ** 2 - 4 * beta_ref * np.log(surviel_append_sur_une_simu)) - alpha_ref) / (2 * beta_ref)
         Dose_Bio_append_sur_toutes_simus.append(Dose_Bio_append_sur_une_simu)
@@ -756,17 +783,11 @@ def main():
     incert_mean_cell_survival=np.full(nb_cellules_reel ,np.std(np.mean(surviel_append_sur_toutes_simus_np,axis=1)))
     incert_dose_bio=np.std(np.mean(Dose_Bio_append_sur_toutes_simus_np, axis=1))
 
-    print()
-    print("nb de config avec erreur", nb_files_with_errors)
-    print()
-
     alpha=0.5
 
     SF=np.sum(np.exp(-alpha*dosen_c_tot))/nb_cellules_reel
 
     EUD=-np.log(SF)/alpha
-
-    # print(TCP_append_sur_toutes_simus_np)
 
     print("TCP =")
     print(TCP, "+-", 2*np.std(TCP_append_sur_toutes_simus_np)/np.sqrt(nb_complete_simulations))
@@ -847,7 +868,10 @@ def main():
     wb.new_sheet("AnalysisResults_SimID", data=results_to_write)
     wb.save(fname)
 
-    print(" Temps total =  ", (time.time() - START_TIME)//60, "minutes", (time.time() - START_TIME)%60, "secondes")
+    END_TIME = time.perf_counter()
+
+    print(" Temps total =  ", (END_TIME - START_TIME)//60, "minutes",
+          math.floor((END_TIME - START_TIME)%60), "secondes")
 
 def add_new_buttons_to_graphic_window():
     global r_sph, nom_config, spheroid_compaction, xml_geom, nb_cellules_xml, cell_compartment_radionuclide,\
@@ -923,4 +947,5 @@ def add_new_buttons_to_graphic_window():
     Validate_data = tkinter.Button(window, text="Validate", command=main)
     Validate_data.place(x=480, y=560)
 
-graphic_window()
+if __name__ == '__main__':
+    graphic_window()
