@@ -51,8 +51,7 @@ BETAG = [0.0961, 0.0405, 0.0625]  # constant of Monini et al. 2019
 
 Emax=8000 #Energie max des ions Hélium émis, en keV
 
-radius_cell_line = 7  # Rayon du noyau de la lignée HSG, en µm
-surface_centerslice_cell_line = math.pi * radius_cell_line ** 2 #µm²
+radius_nucleus_cell_line = [7, 4.9, 5.9]  # µm. HSG, V79, CHO-K1
 length_of_cylinderslice_cell = 1 #µm
 
 bins = 200
@@ -94,7 +93,9 @@ def alpha_nanox(energy,type_cell):
            ((UNIT_COEFFICIENT_A * conv_let_e_srim * (b-1))*np.sqrt(beta_nanox(energy/4000,type_cell)/(b+(b*b)/2))))\
            /(UNIT_COEFFICIENT_A * conv_let_e_srim)
 
-def dn1_de_continous():
+def dn1_de_continous(type_cell):
+    surface_centerslice_cell_line = math.pi * radius_nucleus_cell_line[type_cell] ** 2  # µm²
+    print('surface_centerslice_cell_line', surface_centerslice_cell_line)
     conversion_energy_in_let_srim_alpha_beta_approximation_range = \
         conversion_energy_in_let("SRIM", energies_valid_for_alpha_beta_approximation)
     conversion_energy_in_let_g4_alpha_beta_approximation_range = \
@@ -334,7 +335,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, simulation
 
     ei = data_event_level["Ei"]  # Energy in keV
     ef = data_event_level["Ef"]
-    dn1_de_continous_pre_calculated = dn1_de_continous()
+    dn1_de_continous_pre_calculated = dn1_de_continous(type_cell)
     n1 = number_of_lethal_events_for_alpha_traversals(dn1_de_continous_pre_calculated)
 
     n_tab = (n1(ei) - n1(ef))
@@ -644,7 +645,7 @@ def print_geometry_informations():
     return None
 
 def print_mean_results(analysis_dataframe):
-    print("Mean values with standard deviations : ")
+    print("Mean values with standard deviations : \n")
     for name, values in analysis_dataframe.iteritems():
         if name not in ["simulation_id", "id_cell", "zone_cell"]:
             name = name.replace("_", " ").capitalize()
