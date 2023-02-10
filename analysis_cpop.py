@@ -131,10 +131,10 @@ def determine_cells_in_2_spheroid_zones(positions_x, positions_y, positions_z, r
     for index in index_list:
         if positions_cell[index] < radius_zone_1:
             zone_of_cell[index] = 1
-            nb_cell_zone_1 += 1
+            nb_cell_in_zone_1 += 1
         elif positions_cell[index] < radius_zone_2:
             zone_of_cell[index] = 2
-            nb_cell_zone_2 += 1
+            nb_cell_in_zone_2 += 1
     return zone_of_cell, nb_cell_in_zone_1, nb_cell_in_zone_2
 
 def deletion_of_cells_with_no_alpha_traversals(ei_ef_unique, nb_particles_per_nucleus):
@@ -195,6 +195,9 @@ def mean_and_std_calculation_dataframe(analysis_dataframe):
 
     analysis_dataframe.drop('ei_ef_sum', inplace=True, axis=1)
     analysis_dataframe.drop('nb_particles_per_nucleus', inplace=True, axis=1)
+
+    analysis_dataframe.drop_duplicates(subset="id_cell", inplace=True)
+    # analysis_dataframe.drop_duplicates(subset="simulation_id", inplace=True)
 
     return analysis_dataframe
 
@@ -358,16 +361,14 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     #################################### Cross-fire dose au noyau ##########################################
 
-    ############################################
-
     ind_non_cross_fire = data_event_level["ID_Cell"] == data_event_level["Cellule_D_Emission"]
-    ind_cross_fire = data_event_level["ID_Cell"] != data_event_level["Cellule_D_Emission"]
+    ind_cross_fire = ~ind_non_cross_fire #the complementary array
 
     if indice_available_diffusion_info == 1:
         ind_non_cross_fire = ((data_event_level["ID_Cell"] == data_event_level["Cellule_D_Emission"]) &
                               (data_event_level["indice_if_diffusion"] == 0))
-        ind_cross_fire = ((data_event_level["ID_Cell"] != data_event_level["Cellule_D_Emission"]) &
-                          (data_event_level["indice_if_diffusion"] == 1))
+        ind_cross_fire = ~ind_non_cross_fire
+
 
     data_noyau_non_cross_fire = data_event_level[ind_non_cross_fire]
 
@@ -404,8 +405,10 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     sum_dose_noyau_non_cross_fire_zone1 = np.sum(ei_ef_unique_non_cross_fire_zone1)
     sum_dose_noyau_non_cross_fire_zone2 = np.sum(ei_ef_unique_non_cross_fire_zone2)
 
+    print("non cross-fire", sum_dose_noyau_non_cross_fire_zone1)
     sum_dose_noyau_crossfire_zone1 = np.sum(ei_ef_unique_cross_fire_zone1)
     sum_dose_noyau_crossfire_zone2 = np.sum(ei_ef_unique_cross_fire_zone2)
+    print("cross-fire", sum_dose_noyau_crossfire_zone1)
 
     #################################### Nombre de cellules traversées par particule ##########################
 
@@ -683,8 +686,8 @@ def main():
 
     for simulation_id in indexes_root_files_without_errors_np:
         root_data_np, indice_available_diffusion_info, indice_available_edep_sph_info = open_root_file(simulation_id)
-        analysis_dataframe = calculations_from_root_file(analysis_dataframe, root_data_np, simulation_id,
-                                                       indice_available_diffusion_info, indice_available_edep_sph_info,
+        analysis_dataframe = calculations_from_root_file(analysis_dataframe, root_data_np,
+                                                       indice_available_diffusion_info,
                                                        real_id_cells, test_file_not_empty, deleted_id_txt)
 
     progress_bar['value'] = math.floor(progress_bar['value'])
@@ -714,7 +717,7 @@ def update_progress_bar_label():
 
 def add_new_buttons_to_graphic_window():
     global r_sph, nom_config, spheroid_compaction, xml_geom, nb_cellules_xml, cell_compartment,\
-    nb_complete_simulations, nb_group_of_cells_considered, simulation_name,\
+    nb_complete_simulations, simulation_name,\
     study_type_folder_name, bool_diff, rn_name, nb_particles_per_cell, type_cell, available_data_date,\
     available_data_name_file, available_data_combobox, nom_fichier_root, progress_bar, progress_bar_label
 
@@ -737,9 +740,6 @@ def add_new_buttons_to_graphic_window():
     study_type = study_type_radiovalue.get()  # 0 for internalization study, 1 for labeling study
 
     nb_complete_simulations = int(nb_simulations_entry.get())
-    nb_group_of_cells_considered = 1  #Usually 1 but can be changed for very long simulations.
-                                      # E.g. : if = 2, half the jobs were sent in 50% of the cells
-                                      #and the other jobs in the other 50% of cells.
 
     if study_type == 0:
         simulation_name = cell_compartment
