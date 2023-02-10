@@ -14,7 +14,6 @@ import math
 import numpy as np
 import os
 import pandas as pd
-from pyexcelerate import Workbook
 import scipy.integrate
 import scipy.interpolate as interpolate
 import sys
@@ -36,7 +35,7 @@ A = [-0.18385472, -0.10426184, -0.11163773]
 W = [3.05093045, 2.87758559, 3.20398251]
 XC = [0.46545609, 0.38084839, 0.48452192]
 
-# ################ Fit parameters from 2022/12/16 ################# TO DO : evaluate differences with previous parameters
+# ################ Fit parameters from 2022/12/16 ############### TO DO : evaluate differences with previous parameters
 # Y0 = [0.06486164, 0.02722410, 0.04221387] #HSG, V79, CHO-K1
 # A = [-0.26336407, -0.11801719, -0.19357751]
 # W = [3.39940424, 2.97713123, 3.90866411]
@@ -83,24 +82,23 @@ def conversion_energy_in_let(data_base, energy):
 
     return continuous_function_to_convert_energy_in_let(energy)
 
-def beta_nanox(energy,type_cell): #energy in MeV/nucleon
-    return Y0[type_cell] + (A[type_cell]/(2*np.pi))*(W[type_cell]/(((energy-XC[type_cell])**2)+(W[type_cell]**2)/4))
+def beta_nanox(energy,cell_line): #energy in MeV/nucleon
+    return Y0[cell_line] + (A[cell_line]/(2*np.pi))*(W[cell_line]/(((energy-XC[cell_line])**2)+(W[cell_line]**2)/4))
 
-def alpha_nanox(energy,type_cell):
+def alpha_nanox(energy,cell_line):
     conv_let_e_srim = conversion_energy_in_let("SRIM", energy)
-    b = BETAG[type_cell] * (((UNIT_COEFFICIENT_A * conv_let_e_srim * 0.8)/SIG0[type_cell]) ** 2)
-    return (SIG0[type_cell] +
-           ((UNIT_COEFFICIENT_A * conv_let_e_srim * (b-1))*np.sqrt(beta_nanox(energy/4000,type_cell)/(b+(b*b)/2))))\
+    b = BETAG[cell_line] * (((UNIT_COEFFICIENT_A * conv_let_e_srim * 0.8)/SIG0[cell_line]) ** 2)
+    return (SIG0[cell_line] +
+           ((UNIT_COEFFICIENT_A * conv_let_e_srim * (b-1))*np.sqrt(beta_nanox(energy/4000,cell_line)/(b+(b*b)/2))))\
            /(UNIT_COEFFICIENT_A * conv_let_e_srim)
 
-def dn1_de_continous(type_cell):
-    surface_centerslice_cell_line = math.pi * radius_nucleus_cell_line[type_cell] ** 2  # µm²
-    print('surface_centerslice_cell_line', surface_centerslice_cell_line)
+def dn1_de_continous(cell_line):
+    surface_centerslice_cell_line = math.pi * radius_nucleus_cell_line[cell_line] ** 2  # µm²
     conversion_energy_in_let_srim_alpha_beta_approximation_range = \
         conversion_energy_in_let("SRIM", energies_valid_for_alpha_beta_approximation)
     conversion_energy_in_let_g4_alpha_beta_approximation_range = \
         conversion_energy_in_let("G4", energies_valid_for_alpha_beta_approximation)
-    dn1_de = -np.log(1 - alpha_nanox(energies_valid_for_alpha_beta_approximation,type_cell) \
+    dn1_de = -np.log(1 - alpha_nanox(energies_valid_for_alpha_beta_approximation,cell_line) \
                      * UNIT_COEFFICIENT_A*conversion_energy_in_let_srim_alpha_beta_approximation_range \
                      / surface_centerslice_cell_line) \
                      / (length_of_cylinderslice_cell * conversion_energy_in_let_g4_alpha_beta_approximation_range)
@@ -126,18 +124,18 @@ def determine_cells_in_2_spheroid_zones(positions_x, positions_y, positions_z, r
     and an array, sorted by cell id, with the zones where the cells are
     """
     positions_cell = np.sqrt(positions_x ** 2 + positions_y ** 2 + positions_z ** 2)
-    zone_cell = np.zeros(nb_cells)
-    nb_cell_zone_1 = 0
-    nb_cell_zone_2 = 0
+    zone_of_cell = np.zeros(nb_cells)
+    nb_cell_in_zone_1 = 0
+    nb_cell_in_zone_2 = 0
     index_list = np.arange(0,nb_cells)
     for index in index_list:
         if positions_cell[index] < radius_zone_1:
-            zone_cell[index] = 1
+            zone_of_cell[index] = 1
             nb_cell_zone_1 += 1
         elif positions_cell[index] < radius_zone_2:
-            zone_cell[index] = 2
+            zone_of_cell[index] = 2
             nb_cell_zone_2 += 1
-    return zone_cell, nb_cell_zone_1, nb_cell_zone_2
+    return zone_of_cell, nb_cell_in_zone_1, nb_cell_in_zone_2
 
 def deletion_of_cells_with_no_alpha_traversals(ei_ef_unique, nb_particles_per_nucleus):
     """
@@ -219,13 +217,13 @@ def open_root_file(simulation_id):
     try:
         diffusion_index_root = f['cell']['indice_if_diffusion'].array(library="np")
         indice_available_diffusion_info = 1
-    except:
+    except uproot.KeyInFileError:
         print("indice_if_diffusion not available on these data")
         indice_available_diffusion_info = 0
     try:
         energy_deposited_spheroid_root = f['cell']['fEdep_sph'].array(library="np")
         indice_available_edep_sph_info = 1
-    except:
+    except uproot.KeyInFileError:
         print("fEdep_sph not available on these data")
         indice_available_edep_sph_info = 0
 
@@ -234,14 +232,14 @@ def open_root_file(simulation_id):
                                                        id_cell_root, emission_cell_root,
                                                        event_id_root, energy_deposited_nucleus_root,
                                                        energy_deposited_cytoplasm_root],
-                                                      names='nameParticle, Ei, Ef, ID_Cell, Cellule_D_Emission, eventID, fEdepn, fEdepc')
+                                    names='nameParticle, Ei, Ef, ID_Cell, Cellule_D_Emission, eventID, fEdepn, fEdepc')
     elif indice_available_diffusion_info == 1 and indice_available_edep_sph_info == 0:
         root_data_opened = np.core.records.fromarrays([name_particle_root, ei_root, ef_root,
                                                        id_cell_root, emission_cell_root,
                                                        event_id_root, energy_deposited_nucleus_root,
                                                        energy_deposited_cytoplasm_root,
                                                        diffusion_index_root],
-                                                      names='nameParticle, Ei, Ef, ID_Cell, Cellule_D_Emission, eventID, fEdepn, fEdepc,'
+                                    names='nameParticle, Ei, Ef, ID_Cell, Cellule_D_Emission, eventID, fEdepn, fEdepc,'
                                                             ' indice_if_diffusion')
     elif indice_available_diffusion_info == 1 and indice_available_edep_sph_info == 1:
         root_data_opened = np.core.records.fromarrays([name_particle_root, ei_root, ef_root,
@@ -250,13 +248,13 @@ def open_root_file(simulation_id):
                                                        energy_deposited_cytoplasm_root,
                                                        diffusion_index_root,
                                                        energy_deposited_spheroid_root],
-                                                      names='nameParticle, Ei, Ef, ID_Cell, Cellule_D_Emission, eventID, fEdepn, fEdepc,'
+                                    names='nameParticle, Ei, Ef, ID_Cell, Cellule_D_Emission, eventID, fEdepn, fEdepc,'
                                                             ' indice_if_diffusion, fEdep_sph')
 
     return root_data_opened, indice_available_diffusion_info, indice_available_edep_sph_info
 
-def calculations_from_root_file(analysis_dataframe, root_data_opened, simulation_id, indice_available_diffusion_info,
-                                indice_available_edep_sph_info, real_id_cells, test_file_not_empty, deleted_id_txt):
+def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_available_diffusion_info,
+                                real_id_cells, test_file_not_empty, deleted_id_txt):
     """
     Opens root file corresponding to a MC simulation and calculates quantities like cell survivals
     Returns Check
@@ -283,7 +281,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, simulation
 
     ind_end_of_run = root_data_opened["nameParticle"] == 'EndOfRun'
 
-    data_edep_cell = root_data_opened[ind_end_of_run]
+    data_run_level = root_data_opened[ind_end_of_run]
 
     ########################## Vérification diffusion aux bonnes énergies ###############################
 
@@ -320,18 +318,18 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, simulation
         index_cellule_emission = np.where(real_id_cells == data_event_level[ind_modif_id]["Cellule_D_Emission"])
         data_event_level[ind_modif_id]["Cellule_D_Emission"] = perfect_id_cells[index_cellule_emission]
 
-    ################ data_edep_cell ######################################
+    ################ data_run_level ######################################
 
     if test_file_not_empty != 0:
         elements_to_remove = []
-        for ind_modif_id in range(0, len(data_edep_cell)):
-            if ((data_edep_cell)[ind_modif_id]["ID_Cell"]) in deleted_id_txt:
+        for ind_modif_id in range(0, len(data_run_level)):
+            if (data_run_level[ind_modif_id]["ID_Cell"]) in deleted_id_txt:
                 elements_to_remove.append(ind_modif_id)
-        data_edep_cell = np.delete(data_edep_cell, elements_to_remove, 0)
+        data_run_level = np.delete(data_run_level, elements_to_remove, 0)
 
-    for ind_modif_id in range(0, len(data_edep_cell)):
-        index_id_cell = np.where(real_id_cells == (data_edep_cell)[ind_modif_id]["ID_Cell"])
-        (data_edep_cell)[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
+    for ind_modif_id in range(0, len(data_run_level)):
+        index_id_cell = np.where(real_id_cells == data_run_level[ind_modif_id]["ID_Cell"])
+        data_run_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
 
     ei = data_event_level["Ei"]  # Energy in keV
     ef = data_event_level["Ef"]
@@ -342,8 +340,8 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, simulation
 
     txt_cells_masses=f"Cpop_Masse_Txt/MassesCell_{nom_config}.txt"
     masses_cytoplasms, masses_nuclei, masses_cells = geometry_informations.masses_cells_reading(txt_cells_masses)
-    dosen_append_sur_une_simu_np = (((data_edep_cell)["fEdepn"]) * KEV_IN_J / masses_nuclei)
-    dosec_append_sur_une_simu_np = (((data_edep_cell)["fEdepc"]) * KEV_IN_J / masses_cytoplasms)
+    dosen_append_sur_une_simu_np = ((data_run_level["fEdepn"]) * KEV_IN_J / masses_nuclei)
+    dosec_append_sur_une_simu_np = ((data_run_level["fEdepc"]) * KEV_IN_J / masses_cytoplasms)
 
     analysis_dataframe_temp['dose_nucleus_(gy)'] = dosen_append_sur_une_simu_np
     analysis_dataframe_temp['dose_cytoplasm_(gy)'] = dosec_append_sur_une_simu_np
@@ -462,7 +460,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, simulation
 
     analysis_dataframe_temp['cell_survival_global'] = survieg_append_sur_une_simu
 
-    spheroid_dose = data_edep_cell[0]["fEdep_sph"] * KEV_IN_J / masse_tum
+    spheroid_dose = data_run_level[0]["fEdep_sph"] * KEV_IN_J / masse_tum
     analysis_dataframe_temp['spheroid_dose'] = spheroid_dose
 
 
@@ -691,14 +689,13 @@ def main():
 
     progress_bar['value'] = math.floor(progress_bar['value'])
 
-    mean_and_std_calculation_dataframe(analysis_dataframe).to_csv('Test_df_to_pandas.csv')
+    #mean_and_std_calculation_dataframe(analysis_dataframe).to_csv('Test_df_to_pandas.csv')
+    mean_and_std_calculation_dataframe(analysis_dataframe).to_csv(f"AnalysisResults/{study_type_folder_name}/" 
+                                                                  f"{nom_dossier_pour_excel_analyse}/Emission" 
+                                                                  f"{cell_compartment}.csv")
 
     print()
     print_mean_results(analysis_dataframe)
-
-    # if indice_available_edep_sph_info:
-    #     print("Dose sphéroïde")
-        # print(spheroid_dose[0], "Gy") #Check : add spheroid dose
 
     print("Nombre de simus fonctionnelles = ")
     print(nb_complete_simulations - nb_files_with_errors)
