@@ -23,7 +23,7 @@ def count_number_of_cells_in_xml_file(xml_filename):
         for xml_parser in xml_file_opened_with_cell_and_x_tag:
             # x = xml_parser.firstChild.data
             nb_cells += 1
-    return(nb_cells)
+    return nb_cells
 
 def cpop_real_cell_id_determination(file_with_deleted_cell_id_in_cpop, nb_cellules_xml):
     """
@@ -45,7 +45,7 @@ def cpop_real_cell_id_determination(file_with_deleted_cell_id_in_cpop, nb_cellul
     real_id_cells = np.arange(3,nb_cellules_xml+3)
     if test_file_not_empty != 0:
         real_id_cells = subset_sorted_array(real_id_cells,deleted_id_txt)
-    return(real_id_cells, test_file_not_empty, deleted_id_txt)
+    return real_id_cells, test_file_not_empty, deleted_id_txt
 
 def masses_cells_reading(txt_file_with_masses_cells):
     """
@@ -58,7 +58,7 @@ def masses_cells_reading(txt_file_with_masses_cells):
     masses_cells = (column(masses_cells_txt_numpy,2))
     masses_cells = np.array(masses_cells) * 10 ** (-6)  #conversion in kg
     masses_cytoplasms = masses_cells - masses_nuclei  #kg
-    return(masses_cytoplasms, masses_nuclei, masses_cells)
+    return masses_cytoplasms, masses_nuclei, masses_cells
 
 def positions_cells_reading(xml_file_with_cells_positions, real_id_cells):
     """
@@ -100,7 +100,7 @@ def positions_cells_reading(xml_file_with_cells_positions, real_id_cells):
     positions_x = positions_and_id[:,0]
     positions_y = positions_and_id[:,1]
     positions_z = positions_and_id[:,2]
-    return(positions_x, positions_y, positions_z)
+    return positions_x, positions_y, positions_z
 
 # geometry_name = "Elg095um50CP"
 # ###

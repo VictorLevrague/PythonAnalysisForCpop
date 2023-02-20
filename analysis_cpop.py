@@ -170,7 +170,9 @@ def mean_and_std_calculation_dataframe(analysis_dataframe):
 
 
     edep_moy_per_nucleus_cross = ei_ef_without_zeros / nb_particles_per_nucleus_without_zeros
-    analysis_dataframe['tcp'] = analysis_dataframe.groupby(['id_cell'])['tcp'].mean()
+    analysis_dataframe['tcp_binomial_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['tcp_binomial'].std()
+    analysis_dataframe['tcp_binomial'] = analysis_dataframe.groupby(['id_cell'])['tcp_binomial'].mean()
     analysis_dataframe['cell_survival_local_std'] = analysis_dataframe.groupby(['id_cell'])\
                                                                         ['cell_survival_local'].std()
     analysis_dataframe['cell_survival_local'] = analysis_dataframe.groupby(['id_cell'])['cell_survival_local'].mean()
@@ -189,6 +191,8 @@ def mean_and_std_calculation_dataframe(analysis_dataframe):
                                                                         ['cross_fire_nucleus_zone1'].mean()
     analysis_dataframe['cross_fire_nucleus_zone2'] = analysis_dataframe.groupby(['id_cell'])\
                                                                         ['cross_fire_nucleus_zone2'].mean()
+    analysis_dataframe['tcp_formula_poisson_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['tcp_formula_poisson'].std()
     analysis_dataframe['tcp_formula_poisson'] = analysis_dataframe.groupby(['id_cell'])['tcp_formula_poisson'].mean()
     analysis_dataframe['biological_dose_(gy)'] = analysis_dataframe.groupby(['id_cell'])['biological_dose_(gy)'].mean()
     analysis_dataframe['edep_moy_per_nucleus_cross_(kev)'] = edep_moy_per_nucleus_cross.mean()
@@ -405,10 +409,8 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     sum_dose_noyau_non_cross_fire_zone1 = np.sum(ei_ef_unique_non_cross_fire_zone1)
     sum_dose_noyau_non_cross_fire_zone2 = np.sum(ei_ef_unique_non_cross_fire_zone2)
 
-    print("non cross-fire", sum_dose_noyau_non_cross_fire_zone1)
     sum_dose_noyau_crossfire_zone1 = np.sum(ei_ef_unique_cross_fire_zone1)
     sum_dose_noyau_crossfire_zone2 = np.sum(ei_ef_unique_cross_fire_zone2)
-    print("cross-fire", sum_dose_noyau_crossfire_zone1)
 
     #################################### Nombre de cellules traversées par particule ##########################
 
@@ -455,7 +457,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     exp_surviel = np.exp(-np.asarray(surviel_append_sur_une_simu))
     tcp_une_simu = np.prod(exp_surviel)
     tcp_test_formula = np.prod(1 - surviel_append_sur_une_simu)
-    analysis_dataframe_temp['tcp'] = tcp_une_simu
+    analysis_dataframe_temp['tcp_binomial'] = tcp_une_simu
     analysis_dataframe_temp['tcp_formula_poisson'] = tcp_test_formula
 
     survieg_append_sur_une_simu = \
