@@ -42,8 +42,8 @@ XC = [0.46545609, 0.38084839, 0.48452192]
 # XC = [-0.00863166, 0.23348883, -0.25238105]
 
 ## TO DO : generalize alpha & beta photon for all available cell lines (HSG, V79 & CHO-K1)
-ALPHA_PHOTON = 0.313  # HSG
-BETA_PHOTON = 0.0615  # HSG
+ALPHA_PHOTON = [0.313, 0.184, 0.228] #HSG, V79, CHO-K1
+BETA_PHOTON = [0.062, 0.020, 0.020]
 
 BETAG = [0.0961, 0.0405, 0.0625]  # constant of Monini et al. 2019
 
@@ -261,7 +261,7 @@ def open_root_file(simulation_id):
     return root_data_opened, indice_available_diffusion_info, indice_available_edep_sph_info
 
 def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_available_diffusion_info,
-                                real_id_cells, test_file_not_empty, deleted_id_txt):
+                                real_id_cells, test_file_not_empty, deleted_id_txt, cell_line):
     """
     Opens root file corresponding to a MC simulation and calculates quantities like cell survivals
     Returns Check
@@ -449,8 +449,8 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     analysis_dataframe_temp['cell_survival_local'] = surviel_append_sur_une_simu
 
     dose_bio_append_sur_une_simu = \
-       (np.sqrt(ALPHA_PHOTON ** 2 - 4 * BETA_PHOTON * np.log(surviel_append_sur_une_simu)) - ALPHA_PHOTON) \
-            / (2 * BETA_PHOTON)
+       (np.sqrt(ALPHA_PHOTON[cell_line] ** 2 - 4 * BETA_PHOTON[cell_line] * np.log(surviel_append_sur_une_simu)) - ALPHA_PHOTON[cell_line]) \
+            / (2 * BETA_PHOTON[cell_line])
 
     analysis_dataframe_temp['biological_dose_(gy)'] = dose_bio_append_sur_une_simu
 
@@ -690,7 +690,7 @@ def main():
         root_data_np, indice_available_diffusion_info, indice_available_edep_sph_info = open_root_file(simulation_id)
         analysis_dataframe = calculations_from_root_file(analysis_dataframe, root_data_np,
                                                        indice_available_diffusion_info,
-                                                       real_id_cells, test_file_not_empty, deleted_id_txt)
+                                                       real_id_cells, test_file_not_empty, deleted_id_txt, type_cell)
 
     progress_bar['value'] = math.floor(progress_bar['value'])
 
