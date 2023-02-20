@@ -694,6 +694,8 @@ def main():
 
     progress_bar['value'] = math.floor(progress_bar['value'])
 
+    print("test")
+
     #mean_and_std_calculation_dataframe(analysis_dataframe).to_csv('Test_df_to_pandas.csv')
     mean_and_std_calculation_dataframe(analysis_dataframe).to_csv(f"AnalysisResults/{study_type_folder_name}/" 
                                                                   f"{nom_dossier_pour_excel_analyse}/Emission" 
