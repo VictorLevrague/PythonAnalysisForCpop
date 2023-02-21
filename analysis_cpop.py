@@ -465,8 +465,8 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     analysis_dataframe_temp['cell_survival_global'] = survieg_append_sur_une_simu
 
-    spheroid_dose = data_run_level[0]["fEdep_sph"] * KEV_IN_J / masse_tum
-    analysis_dataframe_temp['spheroid_dose'] = spheroid_dose
+    # spheroid_dose = data_run_level[0]["fEdep_sph"] * KEV_IN_J / masse_tum
+    # analysis_dataframe_temp['spheroid_dose'] = spheroid_dose
 
 
     return pd.concat([analysis_dataframe, analysis_dataframe_temp], ignore_index=True)
@@ -505,12 +505,16 @@ def id_deletion_of_root_outputs_with_errors():
     indexes_root_files_without_errors = np.array([])
 
     while indexe_of_root_output < nb_complete_simulations:
-        try: # Check if simulation 8 is valid for 10ppc (weird : there is diffusion)
+        try:
             root_file_name =\
                 f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{indexe_of_root_output}_t0.root"
             with uproot.open(root_file_name) as root_file:
-                _ = root_file['cell']['nameParticle'].array(library="np")
-            indexes_root_files_without_errors = np.append(indexes_root_files_without_errors, indexe_of_root_output)
+                _ = root_file['cell']['nameParticle'].array(library="np") #test to see if file is corrupted
+                event_id =  root_file['cell']['eventID'].array(library="np")
+            if(np.max(event_id)>0.90 * nb_cellules_reel * int(nb_particle_per_cell)):
+                indexes_root_files_without_errors = np.append(indexes_root_files_without_errors, indexe_of_root_output)
+                #Security to remove unfinished simulations. We cannot know in advance the number if events.
+                #So, the value of 0.9 is arbitrary.
             indexe_of_root_output += 1
         except uproot.KeyInFileError:
             indexe_of_root_output += 1
@@ -613,14 +617,15 @@ def graphic_window():
     window.mainloop()
 
 def create_folder_for_output_analysis_files():
-    global dossier_root, index_of_first_root_output, nom_dossier_pour_excel_analyse
+    global dossier_root, index_of_first_root_output, nom_dossier_pour_excel_analyse, nb_particle_per_cell
     dossier_root = study_type_folder_name + "/" + available_data_name_file[available_data_combobox.current()] + "/"
     index_of_first_root_output = 0 #Works only if the indexes of root files start at 0
+    nb_particle_per_cell = nb_particles_per_cell[number_particles_per_cell_combobox.current()]
     nom_dossier_pour_excel_analyse = f"{available_data_date[available_data_combobox.current()]}" \
                                      f"__{spheroid_compaction}CP_" \
                                      f"{r_sph}um_" \
                                      f"{rn_name}_diff{bool_diff[diffusion_combobox.current()]}_" \
-                                     f"{nb_particles_per_cell[number_particles_per_cell_combobox.current()]}ppc_" \
+                                     f"{nb_particle_per_cell}ppc_" \
                                      f"{cell_line_combobox.get()}"
 
     print("nom_dossier_pour_excel_analyse : ", nom_dossier_pour_excel_analyse)
@@ -677,8 +682,7 @@ def main():
                                                     positions_y, positions_z,
                                                     radius_zone_1 = 50, radius_zone_2 = 95,
                                                     nb_cells = nb_cellules_reel)
-    if verbose == 1:
-        print_geometry_informations()
+
 
     indexes_root_files_without_errors_np, nb_files_with_errors = id_deletion_of_root_outputs_with_errors()
 
@@ -692,9 +696,10 @@ def main():
                                                        indice_available_diffusion_info,
                                                        real_id_cells, test_file_not_empty, deleted_id_txt, type_cell)
 
-    progress_bar['value'] = math.floor(progress_bar['value'])
+    if verbose == 1:
+        print_geometry_informations()
 
-    print("test")
+    progress_bar['value'] = math.floor(progress_bar['value'])
 
     #mean_and_std_calculation_dataframe(analysis_dataframe).to_csv('Test_df_to_pandas.csv')
     mean_and_std_calculation_dataframe(analysis_dataframe).to_csv(f"AnalysisResults/{study_type_folder_name}/" 
