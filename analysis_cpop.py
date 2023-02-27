@@ -8,6 +8,7 @@ Returns
     cell survivals
     cross-fire information
 """
+from matplotlib import pyplot as plt
 
 import geometry_informations
 import math
@@ -92,20 +93,73 @@ def alpha_nanox(energy,cell_line):
            ((UNIT_COEFFICIENT_A * conv_let_e_srim * (b-1))*np.sqrt(beta_nanox(energy/4000,cell_line)/(b+(b*b)/2))))\
            /(UNIT_COEFFICIENT_A * conv_let_e_srim)
 
-def dn1_de_continous(cell_line):
+def dn1_de_continuous(cell_line):
+    """
+    Returns a continous function that calculates dn1_de in function of energy. It depends on the radiobiological alpha
+    coefficient. These come from an alpha fit coming from the beta approximation of Mario Alcoler-Avila.
+    See presentation of Mario for more details.
+    """
     surface_centerslice_cell_line = math.pi * radius_nucleus_cell_line[cell_line] ** 2  # µm²
     conversion_energy_in_let_srim_alpha_beta_approximation_range = \
-        conversion_energy_in_let("SRIM", energies_valid_for_alpha_beta_approximation)
+                                 conversion_energy_in_let("SRIM", energies_valid_for_alpha_beta_approximation)
     conversion_energy_in_let_g4_alpha_beta_approximation_range = \
-        conversion_energy_in_let("G4", energies_valid_for_alpha_beta_approximation)
+                                 conversion_energy_in_let("G4", energies_valid_for_alpha_beta_approximation)
     dn1_de = -np.log(1 - alpha_nanox(energies_valid_for_alpha_beta_approximation,cell_line) \
-                     * UNIT_COEFFICIENT_A*conversion_energy_in_let_srim_alpha_beta_approximation_range \
-                     / surface_centerslice_cell_line) \
-                     / (length_of_cylinderslice_cell * conversion_energy_in_let_g4_alpha_beta_approximation_range)
+                             * UNIT_COEFFICIENT_A*conversion_energy_in_let_srim_alpha_beta_approximation_range \
+                             / surface_centerslice_cell_line) \
+             / (length_of_cylinderslice_cell * conversion_energy_in_let_g4_alpha_beta_approximation_range)
                     #calculation of number of lethal events per keV, via Mario's approximations
     dn1_de_interpolated = interpolate.interp1d(energies_valid_for_alpha_beta_approximation,
                                                dn1_de, fill_value="extrapolate", kind="linear")
+    # alpha_interpolated = interpolate.interp1d(energies_valid_for_alpha_beta_approximation,
+    #                                           alpha_nanox(energies_valid_for_alpha_beta_approximation,cell_line),
+    #                                           fill_value=0, kind="linear", bounds_error=False)
+    # x = np.arange(0, 40000) #MeV juste for the plot
+    # plt.plot(x/1000, alpha_interpolated(x))
+    # plt.ylabel('Alpha coefficient (Gy-1)', fontsize=15)
+    # plt.xlabel('Energy (MeV)', fontsize=15)
+    # plt.title("Alpha coefficient as function of the energy", style='italic', fontsize=16)
+    # plt.savefig("Alpha_As_Function_Of_E.png", dpi=600)
+    # plt.show()
     return dn1_de_interpolated
+
+def dn1_de_continuous_fit_tables(cell_line):
+    """
+    Returns a continous function that calculates dn1_de in function of energy. It depends on the radiobiological alpha
+    coefficient. These are extracted from alpha tables that Mario Alcoler-Avila calculated.
+
+    The hypothesis is made that there are no lethal events under 100 keV/n.
+    """
+
+    alpha_table = pd.read_csv(f"AlphasTables/alpha_He_{cell_line_combobox.get()}.csv")
+    alpha_discrete_from_tables = alpha_table["Alpha (Gy-1)"].to_numpy().astype(float)
+    e_discrete_from_tables = alpha_table["E(MeV/n)"].to_numpy().astype(float)*1000*4   #keV
+    surface_centerslice_cell_line = math.pi * radius_nucleus_cell_line[cell_line] ** 2   # µm²
+    let_discrete_from_tables = alpha_table["LET (keV/um)"].to_numpy().astype(float)
+    conversion_energy_in_let_srim = let_discrete_from_tables
+    conversion_energy_in_let_g4 = conversion_energy_in_let("G4", e_discrete_from_tables)
+    dn1_de = -np.log(1 - alpha_discrete_from_tables  * UNIT_COEFFICIENT_A \
+                             * conversion_energy_in_let_srim / surface_centerslice_cell_line) \
+             / (length_of_cylinderslice_cell * conversion_energy_in_let_g4)
+                    #calculation of number of lethal events per keV, via Mario's alpha table
+    dn1_de_interpolated = interpolate.interp1d(e_discrete_from_tables, dn1_de, fill_value=0,
+                                               kind="linear", bounds_error=False)
+    # alpha_interpolated = interpolate.interp1d(e_discrete_from_tables, alpha_discrete_from_tables, fill_value=0,
+    #                                            kind="linear", bounds_error=False)
+    # alpha_interpolated_extrapolate = interpolate.interp1d(e_discrete_from_tables, alpha_discrete_from_tables,
+    #                                           fill_value="extrapolate", kind="linear")
+    # x = np.arange(0, 40000) #MeV juste for the plot
+    # plt.plot(x/1000, alpha_interpolated(x), color='b', label="With cut at 100 keV/n")
+    # plt.plot(x/1000, alpha_interpolated_extrapolate(x), color='g', label="Extrapolated")
+    # plt.ylabel('Alpha coefficient (Gy-1)', fontsize=15)
+    # plt.xlabel('Energy (MeV)', fontsize=15)
+    # plt.title("Alpha coefficient as function of the energy", style='italic', fontsize=16)
+    # plt.text(1, 0.5, '<-- 100 keV/n', color='r', style='italic')
+    # plt.legend()
+    # plt.savefig("Alpha_As_Function_Of_E_With_Cut_100keV_n.png", dpi=600)
+    # plt.show()
+    return dn1_de_interpolated
+
 
 def number_of_lethal_events_for_alpha_traversals(dn1_de_function):
     """
@@ -340,8 +394,9 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     ei = data_event_level["Ei"]  # Energy in keV
     ef = data_event_level["Ef"]
-    dn1_de_continous_pre_calculated = dn1_de_continous(type_cell)
-    n1 = number_of_lethal_events_for_alpha_traversals(dn1_de_continous_pre_calculated)
+    #dn1_de_continuous_pre_calculated = dn1_de_continuous(type_cell)
+    dn1_de_continuous_pre_calculated = dn1_de_continuous_fit_tables(type_cell)
+    n1 = number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated)
 
     n_tab = (n1(ei) - n1(ef))
 
@@ -470,6 +525,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
 
     return pd.concat([analysis_dataframe, analysis_dataframe_temp], ignore_index=True)
+
 
 def if_internalization_study():
     if labeling_percentage.winfo_exists():
