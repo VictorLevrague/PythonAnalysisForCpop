@@ -394,7 +394,9 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     ei = data_event_level["Ei"]  # Energy in keV
     ef = data_event_level["Ef"]
+    ###Fit from Mario :
     #dn1_de_continuous_pre_calculated = dn1_de_continuous(type_cell)
+    ###Linear interpolation of alpha tables :
     dn1_de_continuous_pre_calculated = dn1_de_continuous_fit_tables(type_cell)
     n1 = number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated)
 
