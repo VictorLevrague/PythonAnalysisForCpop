@@ -8,6 +8,7 @@ Returns
     cell survivals
     cross-fire information
 """
+from matplotlib import pyplot as plt
 
 import geometry_informations
 import math
@@ -16,6 +17,7 @@ import os
 import pandas as pd
 import scipy.integrate
 import scipy.interpolate as interpolate
+import scipy.optimize
 import sys
 import time
 import tkinter
@@ -92,20 +94,175 @@ def alpha_nanox(energy,cell_line):
            ((UNIT_COEFFICIENT_A * conv_let_e_srim * (b-1))*np.sqrt(beta_nanox(energy/4000,cell_line)/(b+(b*b)/2))))\
            /(UNIT_COEFFICIENT_A * conv_let_e_srim)
 
-def dn1_de_continous(cell_line):
+def dn1_de_continuous(cell_line):
+    """
+    Returns a continous function that calculates dn1_de in function of energy. It depends on the radiobiological alpha
+    coefficient. These come from an alpha fit coming from the beta approximation of Mario Alcoler-Avila.
+    See presentation of Mario for more details.
+    """
     surface_centerslice_cell_line = math.pi * radius_nucleus_cell_line[cell_line] ** 2  # µm²
     conversion_energy_in_let_srim_alpha_beta_approximation_range = \
-        conversion_energy_in_let("SRIM", energies_valid_for_alpha_beta_approximation)
+                                 conversion_energy_in_let("SRIM", energies_valid_for_alpha_beta_approximation)
     conversion_energy_in_let_g4_alpha_beta_approximation_range = \
-        conversion_energy_in_let("G4", energies_valid_for_alpha_beta_approximation)
+                                 conversion_energy_in_let("G4", energies_valid_for_alpha_beta_approximation)
     dn1_de = -np.log(1 - alpha_nanox(energies_valid_for_alpha_beta_approximation,cell_line) \
-                     * UNIT_COEFFICIENT_A*conversion_energy_in_let_srim_alpha_beta_approximation_range \
-                     / surface_centerslice_cell_line) \
-                     / (length_of_cylinderslice_cell * conversion_energy_in_let_g4_alpha_beta_approximation_range)
+                             * UNIT_COEFFICIENT_A*conversion_energy_in_let_srim_alpha_beta_approximation_range \
+                             / surface_centerslice_cell_line) \
+             / (length_of_cylinderslice_cell * conversion_energy_in_let_g4_alpha_beta_approximation_range)
                     #calculation of number of lethal events per keV, via Mario's approximations
     dn1_de_interpolated = interpolate.interp1d(energies_valid_for_alpha_beta_approximation,
                                                dn1_de, fill_value="extrapolate", kind="linear")
+    #alpha_interpolated = interpolate.interp1d(energies_valid_for_alpha_beta_approximation,
+                                              #alpha_nanox(energies_valid_for_alpha_beta_approximation,cell_line),
+                                              #fill_value=0, kind="linear", bounds_error=False)
+    # x = np.arange(0, 40000) #MeV juste for the plot
+    # plt.plot(x/1000, alpha_interpolated(x), color='r' ,label = 'Alpha from Beta fit of Mario')
+    # plt.ylabel('Alpha coefficient (Gy-1)', fontsize=15)
+    # plt.xlabel('Energy (MeV)', fontsize=15)
+    # plt.title("Alpha coefficient as function of the energy", style='italic', fontsize=16)
+    # plt.savefig("Alpha_As_Function_Of_E.png", dpi=600)
+    # plt.show()
     return dn1_de_interpolated
+
+def log_normal(x, a, b, c):
+    return 0.344+(a/(x*b*np.sqrt(2*np.pi))) * np.exp(-(np.log(x)-c)**2 / (2*b**2))
+
+
+def dn1_de_continuous_mv_tables(cell_line):
+    """
+    Returns a continous function that calculates dn1_de in function of energy. It depends on the radiobiological alpha
+    coefficient. These are extracted from alpha tables that Mario Alcoler-Avila calculated.
+
+    The data are smoothered via a moving average method.
+    """
+
+    alpha_table = pd.read_csv(f"AlphasTables/alpha_He_{cell_line_combobox.get()}.csv")
+    alpha_discrete_from_tables = alpha_table["Alpha (Gy-1)"].to_numpy().astype(float)
+    e_discrete_from_tables = alpha_table["E(MeV/n)"].to_numpy().astype(float)*1000*4   #keV
+    surface_centerslice_cell_line = math.pi * radius_nucleus_cell_line[cell_line] ** 2   # µm²
+    let_discrete_from_tables = alpha_table["LET (keV/um)"].to_numpy().astype(float)
+    conversion_energy_in_let_srim = let_discrete_from_tables
+    conversion_energy_in_let_g4 = conversion_energy_in_let("G4", e_discrete_from_tables)
+    dn1_de_raw = -np.log(1 - alpha_discrete_from_tables  * UNIT_COEFFICIENT_A \
+                             * conversion_energy_in_let_srim / surface_centerslice_cell_line) \
+             / (length_of_cylinderslice_cell * conversion_energy_in_let_g4)
+                    #calculation of number of lethal events per keV, via Mario's alpha table
+
+    #dn1_de_raw = np.insert(dn1_de_raw, 0, 0, axis=0)
+    _dn1_de_interpolated = interpolate.interp1d(e_discrete_from_tables, dn1_de_raw, fill_value="extrapolate",
+                                               kind="linear")
+
+    # dn1_de_interpolated= interpolate.interp1d(e_discrete_from_tables, dn1_de, fill_value=_dn1_de_interpolated(400),
+    #                                             kind="linear", bounds_error=False)
+
+    # dn1_de_interpolated = interpolate.interp1d(e_discrete_from_tables, dn1_de, fill_value="interpolate",
+    #                                            kind="linear", bounds_error=False)
+
+
+    alpha_discrete_mv = moving_average_alpha_tables(alpha_discrete_from_tables, cell_line)
+
+    dn1_de_with_alpha_mv = -np.log(1 - alpha_discrete_mv * UNIT_COEFFICIENT_A \
+                     * conversion_energy_in_let_srim / surface_centerslice_cell_line) \
+             / (length_of_cylinderslice_cell * conversion_energy_in_let_g4)
+    # calculation of number of lethal events per keV
+
+    dn1_de_with_alpha_mv = np.insert(dn1_de_with_alpha_mv, 0, 0, axis=0)
+
+    e_discrete_from_tables_with_0 = np.insert(e_discrete_from_tables, 0, 0, axis=0)
+
+    dn1_de_with_alpha_mv_continuous = interpolate.interp1d(e_discrete_from_tables_with_0, dn1_de_with_alpha_mv,
+                                             fill_value="interpolate", kind="linear",
+                                             bounds_error=False)
+
+    dn1_de = -np.log(1 - alpha_discrete_from_tables  * UNIT_COEFFICIENT_A \
+                             * conversion_energy_in_let_srim / surface_centerslice_cell_line) \
+             / (length_of_cylinderslice_cell * conversion_energy_in_let_g4)
+                    #calculation of number of lethal events per keV
+
+    dn1_de = moving_average_dn1_de_tables(dn1_de, cell_line)
+
+    dn1_de = np.insert(dn1_de, 0, 0, axis=0)
+
+    dn1_de_continuous = interpolate.interp1d(e_discrete_from_tables_with_0, dn1_de,
+                                                              fill_value="extrapolate", kind="linear",
+                                                              bounds_error=False)
+
+    # plt.subplot(221)
+    # plt.plot(e_discrete_from_tables_with_0/1000, dn1_de_continuous(e_discrete_from_tables_with_0), color='red', label = 'moving average dn1_dE')
+    # plt.legend()
+    # plt.subplot(222)
+    # # alpha_discrete_from_tables = np.insert(alpha_discrete_from_tables, 0, 0, axis=0)
+    # # plt.plot(e_discrete_from_tables_with_0 / 1000, alpha_discrete_from_tables, color='red', label = 'alpha tables')
+    # plt.plot(e_discrete_from_tables_with_0/1000, dn1_de_with_alpha_mv_continuous(e_discrete_from_tables_with_0), color='blue', label = 'dn1_de with alpha mv')
+    # plt.legend()
+    # plt.subplot(223)
+    # plt.plot(e_discrete_from_tables / 1000, _dn1_de_interpolated(e_discrete_from_tables), color='blue', label = 'dn1_de_raw')
+    # plt.legend()
+    # plt.subplot(224)
+    # alpha_discrete_mv = np.insert(alpha_discrete_mv, 0, 0, axis=0)
+    # plt.plot(e_discrete_from_tables_with_0/1000, alpha_discrete_mv, color='blue', label = 'mv alpha tables')
+    # # plt.plot(e_discrete_from_tables, dn1_de, color='red')
+    # plt.legend()
+    #
+    # plt.show()
+
+    #alpha_interpolated = interpolate.interp1d(e_discrete_from_tables, alpha_discrete_from_tables, fill_value=0,
+    #                                           kind="linear", bounds_error=False)
+    # alpha_interpolated_extrapolate = interpolate.interp1d(e_discrete_from_tables, alpha_discrete_from_tables,
+    #                                           fill_value="extrapolate", kind="linear")
+    # x = np.arange(0, 40000) #MeV juste for the plot
+    # plt.plot(x/1000, alpha_interpolated(x), color='b', label="Linear interpolation from Alpha table,"
+    #                                                          " with cut at 100 keV/n")
+    # plt.ylabel('Alpha coefficient (Gy-1)', fontsize=15)
+    # plt.xlabel('Energy (MeV)', fontsize=15)
+    # plt.title("Alpha coefficient as function of the energy", style='italic', fontsize=16)
+    # plt.text(1, 0.5, '<-- 100 keV/n', color='r', style='italic')
+    # plt.legend()
+    # plt.show()
+    # plt.savefig("Alpha_As_Function_Of_E_With_Cut_100keV_n.png", dpi=600)
+
+    # return dn1_de_interpolated
+    return dn1_de_continuous
+
+def moving_average_alpha_tables(alpha_tables, cell_line):
+    """
+    Returns a numpy array with alpha tables smoothered by moving average method
+    """
+    _temp_df = pd.DataFrame()
+    _temp_df["alpha"] = alpha_tables
+    cell_line_specific_window = 0
+    if cell_line == 0: #HSG
+        cell_line_specific_window = 7 #Manual adjustment of moving average
+    elif cell_line == 1: #V79
+        cell_line_specific_window = 5
+    elif cell_line == 2: #CHO-K1
+        cell_line_specific_window = 5
+    moving_average_alpha = _temp_df['alpha'].rolling(window=cell_line_specific_window, center=True,
+                                                     min_periods=1).mean()
+    moving_average_alpha_np = moving_average_alpha.to_numpy()
+    #moving_average_alpha_np = np.insert(moving_average_alpha_np, 0, 0, axis=0)
+
+    return moving_average_alpha_np
+
+def moving_average_dn1_de_tables(dn1_de_from_tables, cell_line):
+    """
+    Returns a numpy array with alpha tables smoothered by moving average method
+    """
+    _temp_df = pd.DataFrame()
+    _temp_df["dn1_de"] = dn1_de_from_tables
+    cell_line_specific_window = 0
+    if cell_line == 0: #HSG
+        cell_line_specific_window = 7 #Manual adjustment of moving average
+    elif cell_line == 1: #V79
+        cell_line_specific_window = 5
+    elif cell_line == 2: #CHO-K1
+        cell_line_specific_window = 5
+    moving_average_dn1_de = _temp_df['dn1_de'].rolling(window=cell_line_specific_window, center=True,
+                                                     min_periods=1).mean()
+    moving_average_dn1_de_np = moving_average_dn1_de.to_numpy()
+    #moving_average_dn1_de_np = np.insert(moving_average_dn1_de_np, 0, 0, axis=0)
+
+    return moving_average_dn1_de_np
 
 def number_of_lethal_events_for_alpha_traversals(dn1_de_function):
     """
@@ -340,8 +497,13 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     ei = data_event_level["Ei"]  # Energy in keV
     ef = data_event_level["Ef"]
-    dn1_de_continous_pre_calculated = dn1_de_continous(type_cell)
-    n1 = number_of_lethal_events_for_alpha_traversals(dn1_de_continous_pre_calculated)
+    ###Fit from Mario :
+    #dn1_de_continuous_pre_calculated = dn1_de_continuous(type_cell)
+    ###Linear interpolation of alpha tables : #outdated
+    #dn1_de_continuous_pre_calculated = dn1_de_continuous_interp_tables(type_cell)
+    ###Moving average of dn1_dE from alpha tables :
+    dn1_de_continuous_pre_calculated = dn1_de_continuous_mv_tables(type_cell)
+    n1 = number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated)
 
     n_tab = (n1(ei) - n1(ef))
 
@@ -471,11 +633,12 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     return pd.concat([analysis_dataframe, analysis_dataframe_temp], ignore_index=True)
 
+
 def if_internalization_study():
     if labeling_percentage.winfo_exists():
         labeling_percentage.destroy()
-    if labeling_percentage_entry.winfo_exists():
-        labeling_percentage_entry.destroy()
+    if labeling_combobox.winfo_exists():
+        labeling_combobox.destroy()
     cell_compartment_label = tkinter.Label(window, text="Intra cellular distribution name :", fg='blue')
     cell_compartment_label.place(x=100, y=100)
     selected_distrib_name = tkinter.StringVar()
@@ -491,8 +654,11 @@ def if_labeling_study() :
         cell_compartment_combobox.destroy()
     labeling_percentage = tkinter.Label(window, text="Labeling percentage : ", fg='blue')
     labeling_percentage.place(x=100, y=100)
-    labeling_percentage_entry = tkinter.Entry(window, width=35)
-    labeling_percentage_entry.place(x=400, y=100)
+    selected_labeling = tkinter.StringVar()
+    labeling_combobox = tkinter.ttk.Combobox(window, width=35, textvariable=selected_labeling)
+    labeling_combobox['values'] = ['100%', '010%', '001%']
+    labeling_combobox.current(0)
+    labeling_combobox.place(x=400, y=100)
 
 def id_deletion_of_root_outputs_with_errors():
     """
@@ -534,8 +700,11 @@ def graphic_window():
     study_type_label = tkinter.Label(window, text = "Type of study :", fg='red')
     study_type_label.place (x=100, y=50)
 
-    labeling_percentage = tkinter.Label(window, text="Labeling percentage : ", fg='blue')
-    labeling_percentage_entry = tkinter.Entry(window, width=35)
+    selected_labeling = tkinter.StringVar()
+    labeling_combobox = tkinter.ttk.Combobox(window, width=35, textvariable=selected_labeling)
+    labeling_combobox['values'] = ['100%', '10%', '1%']
+    labeling_combobox.current(0)
+    labeling_combobox.place(x=400, y=100)
 
     study_type_radiovalue = tkinter.IntVar()
     study_type_radiovalue.set(0)
@@ -562,7 +731,7 @@ def graphic_window():
                          "70µmRadius Spheroid, 75 % cell packing", "160µmRadius Spheroid, 75 % cell packing",
                          "95µmRadius Spheroid, 25 % cell packing", "95µmRadius Spheroid, 50 % cell packing",
                          "95µmRadius Spheroid, 75 % cell packing", "95µmRadius Spheroid, 75 % cell packing 2",
-                         "100µmRadius Spheroid, 40 % cell packing"]
+                         "100µmRadius Spheroid, 40 % cell packing", "140µmRadius Spheroid, 75 % cell packing"]
     geom_name_combobox.place(x=400, y=150)
 
     radionuclide_label = tkinter.Label(window, text = "Radionuclide used :", fg='blue')
@@ -590,7 +759,8 @@ def graphic_window():
     number_particles_per_cell_choice = tkinter.StringVar()
     number_particles_per_cell_combobox = tkinter.ttk.Combobox(window, width=35,
                                                           textvariable=number_particles_per_cell_choice)
-    number_particles_per_cell_combobox['values'] = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "42"]
+    number_particles_per_cell_combobox['values'] = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "13","16", "20",
+                                                    "23","26","31","42"]
     number_particles_per_cell_combobox.current(0)
     number_particles_per_cell_combobox.place(x=400, y=350)
 
@@ -621,12 +791,21 @@ def create_folder_for_output_analysis_files():
     dossier_root = study_type_folder_name + "/" + available_data_name_file[available_data_combobox.current()] + "/"
     index_of_first_root_output = 0 #Works only if the indexes of root files start at 0
     nb_particle_per_cell = nb_particles_per_cell[number_particles_per_cell_combobox.current()]
-    nom_dossier_pour_excel_analyse = f"{available_data_date[available_data_combobox.current()]}" \
-                                     f"__{spheroid_compaction}CP_" \
-                                     f"{r_sph}um_" \
-                                     f"{rn_name}_diff{bool_diff[diffusion_combobox.current()]}_" \
-                                     f"{nb_particle_per_cell}ppc_" \
-                                     f"{cell_line_combobox.get()}"
+    if study_type ==0:
+        nom_dossier_pour_excel_analyse = f"{available_data_date[available_data_combobox.current()]}" \
+                                         f"__{spheroid_compaction}CP_" \
+                                         f"{r_sph}um_" \
+                                         f"{rn_name}_diff{bool_diff[diffusion_combobox.current()]}_" \
+                                         f"{nb_particle_per_cell}ppc_" \
+                                         f"{cell_line_combobox.get()}"
+    elif study_type ==1:
+        nom_dossier_pour_excel_analyse = f"{available_data_date[available_data_combobox.current()]}" \
+                                         f"__{labeling_combobox.get()}_" \
+                                         f"{spheroid_compaction}CP_" \
+                                         f"{r_sph}um_" \
+                                         f"{rn_name}_diff{bool_diff[diffusion_combobox.current()]}_" \
+                                         f"{nb_particle_per_cell}ppc_" \
+                                         f"{cell_line_combobox.get()}"
 
     print("nom_dossier_pour_excel_analyse : ", nom_dossier_pour_excel_analyse)
 
@@ -680,7 +859,7 @@ def main():
 
     zone_cell, nb_cell_zone_1, nb_cell_zone_2 = determine_cells_in_2_spheroid_zones(positions_x,
                                                     positions_y, positions_z,
-                                                    radius_zone_1 = 50, radius_zone_2 = 95,
+                                                    radius_zone_1 = 100, radius_zone_2 = 140,
                                                     nb_cells = nb_cellules_reel)
 
 
@@ -701,10 +880,13 @@ def main():
 
     progress_bar['value'] = math.floor(progress_bar['value'])
 
-    #mean_and_std_calculation_dataframe(analysis_dataframe).to_csv('Test_df_to_pandas.csv')
-    mean_and_std_calculation_dataframe(analysis_dataframe).to_csv(f"AnalysisResults/{study_type_folder_name}/" 
+    if study_type == 0:
+        mean_and_std_calculation_dataframe(analysis_dataframe).to_csv(f"AnalysisResults/{study_type_folder_name}/" 
                                                                   f"{nom_dossier_pour_excel_analyse}/Emission" 
                                                                   f"{cell_compartment}.csv")
+    elif study_type == 1:
+        mean_and_std_calculation_dataframe(analysis_dataframe).to_csv(f"AnalysisResults/{study_type_folder_name}/"
+                                                                      f"{nom_dossier_pour_excel_analyse}/Results.csv")
 
     print()
     print_mean_results(analysis_dataframe)
@@ -728,35 +910,30 @@ def add_new_buttons_to_graphic_window():
     global r_sph, nom_config, spheroid_compaction, xml_geom, nb_cellules_xml, cell_compartment,\
     nb_complete_simulations, simulation_name,\
     study_type_folder_name, bool_diff, rn_name, nb_particles_per_cell, type_cell, available_data_date,\
-    available_data_name_file, available_data_combobox, nom_fichier_root, progress_bar, progress_bar_label
+    available_data_name_file, available_data_combobox, nom_fichier_root, progress_bar, progress_bar_label, study_type
 
     geom_list = ["Elg030um75CP", "Elg050um75CP", "Elg070um75CP", "Elg160um75CP", "Elg095um25CP",
-                 "Elg095um50CP", "Elg095um75CP", "Elg095um75CP_2", "Elg100um40CP"]
-    r_sph = geom_list[geom_name_combobox.current()][3:6]
+                 "Elg095um50CP", "Elg095um75CP", "Elg095um75CP_2", "Elg100um40CP", "Neti140um75CP"]
 
     nom_config = (geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
                                                  # et ceux des ID de cellules supprimés de CPOP à G4,
                                                  # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
-    spheroid_compaction = geom_list[geom_name_combobox.current()][8:10]
 
     xml_geom = "Cpop_Geom_XML/" + nom_config + ".cfg" + ".xml"
 
     nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
     # Nombre de cellules contenues dans le fichier .xml de géométrie créé par CPOP
 
-    cell_compartment = (cell_compartment_combobox.get())
-
     study_type = study_type_radiovalue.get()  # 0 for internalization study, 1 for labeling study
 
     nb_complete_simulations = int(nb_simulations_entry.get())
 
     if study_type == 0:
+        cell_compartment = cell_compartment_combobox.get()
         simulation_name = cell_compartment
         study_type_folder_name = "Internalization"
     elif study_type == 1:
-        labeling_percentage_get = labeling_percentage_entry.get()
-        labeling_percentage_name = str(labeling_percentage_get) + "_Percent"
-        simulation_name = labeling_percentage_name
+        labeling_percentage_get = labeling_combobox.get()
         study_type_folder_name = "Labeling"
 
     output_path = "Root/outputMultiCellulaire/" + study_type_folder_name + "/"
@@ -765,18 +942,30 @@ def add_new_buttons_to_graphic_window():
 
     bool_diff = ["Yes","No"]
     rn_name = radionuclide_entry.get()
-    nb_particles_per_cell = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "42"]
+    nb_particles_per_cell = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "13","16","20","23","26","31","42"]
 
     type_cell = cell_line_combobox.current()
 
     available_data_date = []
     available_data_name_file = []
-    for i in range(0, len(output_folders_name)):
-        if ("_" + cell_compartment + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
-            rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
-            str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc")) in output_folders_name[i]:
-            available_data_date.append(output_folders_name[i][0:10])
-            available_data_name_file.append(output_folders_name[i])
+    if study_type == 0:
+        r_sph = geom_list[geom_name_combobox.current()][3:6]
+        spheroid_compaction = geom_list[geom_name_combobox.current()][8:10]
+        for i in range(0, len(output_folders_name)):
+            if ("_" + cell_compartment + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
+                rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
+                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc")) in output_folders_name[i]:
+                available_data_date.append(output_folders_name[i][0:10])
+                available_data_name_file.append(output_folders_name[i])
+    elif study_type == 1:
+        for i in range(0, len(output_folders_name)):
+            r_sph = geom_list[geom_name_combobox.current()][4:7]
+            spheroid_compaction = geom_list[geom_name_combobox.current()][9:11]
+            if ("_" + labeling_percentage_get + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
+                rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
+                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc")) in output_folders_name[i]:
+                available_data_date.append(output_folders_name[i][0:10])
+                available_data_name_file.append(output_folders_name[i])
 
     available_data_label = tkinter.Label(window, text="Data available :", fg='blue')
     available_data_label.place(x=100, y=510)
