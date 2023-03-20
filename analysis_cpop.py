@@ -981,13 +981,13 @@ def add_new_buttons_to_graphic_window():
     available_data_choice = tkinter.StringVar()
     available_data_combobox = tkinter.ttk.Combobox(window, width=35, textvariable=available_data_choice)
     available_data_combobox['values'] = available_data_date
-    available_data_combobox.place(x=400, y=510)
+    available_data_combobox.place(x=400, y=550)
 
     nom_fichier_root = "output_"
     # Les fichiers root, contenus dans le dossier_root, s'appellent nom_fichier_root{0,...}.root
 
     validate_button_2 = tkinter.Button(window, text="Validate", command=main)
-    validate_button_2.place(x=500, y=560)
+    validate_button_2.place(x=500, y=600)
 
     progress_bar = tkinter.ttk.Progressbar(
         window,
@@ -995,10 +995,10 @@ def add_new_buttons_to_graphic_window():
         mode='determinate',
         length=280,
         value=0)
-    progress_bar.grid(column=0, row=0, columnspan=2, padx=400, pady=620)
+    progress_bar.grid(column=0, row=0, columnspan=2, padx=400, pady=650)
 
     progress_bar_label = tkinter.ttk.Label(window, text = update_progress_bar_label())
-    progress_bar_label.place(x=450, y=650)
+    progress_bar_label.place(x=450, y=700)
 
 
 if __name__ == '__main__':
