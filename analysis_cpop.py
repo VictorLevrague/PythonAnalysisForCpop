@@ -149,8 +149,8 @@ def dn1_de_continuous_mv_tables(cell_line):
                     #calculation of number of lethal events per keV, via Mario's alpha table
 
     #dn1_de_raw = np.insert(dn1_de_raw, 0, 0, axis=0)
-    _dn1_de_interpolated = interpolate.interp1d(e_discrete_from_tables, dn1_de_raw, fill_value=0,
-                                               kind="linear", bounds_error=False)
+    _dn1_de_interpolated = interpolate.interp1d(e_discrete_from_tables, dn1_de_raw, fill_value="extrapolate",
+                                               kind="linear")
 
     # dn1_de_interpolated= interpolate.interp1d(e_discrete_from_tables, dn1_de, fill_value=_dn1_de_interpolated(400),
     #                                             kind="linear", bounds_error=False)
@@ -161,6 +161,19 @@ def dn1_de_continuous_mv_tables(cell_line):
 
     alpha_discrete_mv = moving_average_alpha_tables(alpha_discrete_from_tables, cell_line)
 
+    dn1_de_with_alpha_mv = -np.log(1 - alpha_discrete_mv * UNIT_COEFFICIENT_A \
+                     * conversion_energy_in_let_srim / surface_centerslice_cell_line) \
+             / (length_of_cylinderslice_cell * conversion_energy_in_let_g4)
+    # calculation of number of lethal events per keV
+
+    dn1_de_with_alpha_mv = np.insert(dn1_de_with_alpha_mv, 0, 0, axis=0)
+
+    e_discrete_from_tables_with_0 = np.insert(e_discrete_from_tables, 0, 0, axis=0)
+
+    dn1_de_with_alpha_mv_continuous = interpolate.interp1d(e_discrete_from_tables_with_0, dn1_de_with_alpha_mv,
+                                             fill_value="interpolate", kind="linear",
+                                             bounds_error=False)
+
     dn1_de = -np.log(1 - alpha_discrete_from_tables  * UNIT_COEFFICIENT_A \
                              * conversion_energy_in_let_srim / surface_centerslice_cell_line) \
              / (length_of_cylinderslice_cell * conversion_energy_in_let_g4)
@@ -168,7 +181,6 @@ def dn1_de_continuous_mv_tables(cell_line):
 
     dn1_de = moving_average_dn1_de_tables(dn1_de, cell_line)
 
-    e_discrete_from_tables_with_0 = np.insert(e_discrete_from_tables, 0, 0, axis=0)
     dn1_de = np.insert(dn1_de, 0, 0, axis=0)
 
     dn1_de_continuous = interpolate.interp1d(e_discrete_from_tables_with_0, dn1_de,
@@ -179,13 +191,15 @@ def dn1_de_continuous_mv_tables(cell_line):
     # plt.plot(e_discrete_from_tables_with_0/1000, dn1_de_continuous(e_discrete_from_tables_with_0), color='red', label = 'moving average dn1_dE')
     # plt.legend()
     # plt.subplot(222)
-    # alpha_discrete_from_tables = np.insert(alpha_discrete_from_tables, 0, 0, axis=0)
-    # plt.plot(e_discrete_from_tables_with_0 / 1000, alpha_discrete_from_tables, color='red', label = 'alpha tables')
+    # # alpha_discrete_from_tables = np.insert(alpha_discrete_from_tables, 0, 0, axis=0)
+    # # plt.plot(e_discrete_from_tables_with_0 / 1000, alpha_discrete_from_tables, color='red', label = 'alpha tables')
+    # plt.plot(e_discrete_from_tables_with_0/1000, dn1_de_with_alpha_mv_continuous(e_discrete_from_tables_with_0), color='blue', label = 'dn1_de with alpha mv')
     # plt.legend()
     # plt.subplot(223)
     # plt.plot(e_discrete_from_tables / 1000, _dn1_de_interpolated(e_discrete_from_tables), color='blue', label = 'dn1_de_raw')
     # plt.legend()
     # plt.subplot(224)
+    # alpha_discrete_mv = np.insert(alpha_discrete_mv, 0, 0, axis=0)
     # plt.plot(e_discrete_from_tables_with_0/1000, alpha_discrete_mv, color='blue', label = 'mv alpha tables')
     # # plt.plot(e_discrete_from_tables, dn1_de, color='red')
     # plt.legend()
@@ -226,7 +240,7 @@ def moving_average_alpha_tables(alpha_tables, cell_line):
     moving_average_alpha = _temp_df['alpha'].rolling(window=cell_line_specific_window, center=True,
                                                      min_periods=1).mean()
     moving_average_alpha_np = moving_average_alpha.to_numpy()
-    moving_average_alpha_np = np.insert(moving_average_alpha_np, 0, 0, axis=0)
+    #moving_average_alpha_np = np.insert(moving_average_alpha_np, 0, 0, axis=0)
 
     return moving_average_alpha_np
 
