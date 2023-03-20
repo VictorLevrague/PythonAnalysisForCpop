@@ -692,10 +692,10 @@ def id_deletion_of_root_outputs_with_errors():
 def graphic_window():
     global window, study_type_radiovalue, cell_compartment_combobox, geom_name_combobox, radionuclide_entry,\
         nb_simulations_entry, diffusion_combobox, number_particles_per_cell_combobox, cell_line_combobox,\
-        cell_compartment_label, verbose_radiovalue, labeling_combobox
+        cell_compartment_label, verbose_radiovalue, labeling_combobox, choiceGeom_radiovalue
 
     window = tkinter.Tk()
-    window.geometry("1000x700")
+    window.geometry("1000x800")
 
     study_type_label = tkinter.Label(window, text = "Type of study :", fg='red')
     study_type_label.place (x=100, y=50)
@@ -772,6 +772,15 @@ def graphic_window():
     cell_line_combobox.current(0)
     cell_line_combobox.place(x=400, y=400)
 
+    choiceGeom = tkinter.Label(window, text="Use the geometry associated with the cell line ? :", fg='blue')
+    choiceGeom.place(x=100, y=450)
+    choiceGeom_radiovalue = tkinter.IntVar()
+    choiceGeom_radiovalue.set(0)
+    choiceGeom_radiovalue_no = tkinter.Radiobutton(window, text="No", variable=choiceGeom_radiovalue, value=0)
+    choiceGeom_radiovalue_yes = tkinter.Radiobutton(window, text="Yes", variable=choiceGeom_radiovalue, value=1)
+    choiceGeom_radiovalue_yes.place(x=450, y=450)
+    choiceGeom_radiovalue_no.place(x=550, y=450)
+
     verbose_label = tkinter.Label(window, text = "Verbose :", fg='green')
     verbose_label.place (x=825, y=200)
     verbose_radiovalue=tkinter.IntVar()
@@ -782,7 +791,7 @@ def graphic_window():
     verbose_radiovalue_no.place(x=875, y=250)
 
     validate_button_1 = tkinter.Button(window, text = "Validate", command = add_new_buttons_to_graphic_window)
-    validate_button_1.place(x=500, y=450)
+    validate_button_1.place(x=500, y=500)
 
     window.mainloop()
 
