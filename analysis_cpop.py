@@ -919,10 +919,13 @@ def add_new_buttons_to_graphic_window():
     global r_sph, nom_config, spheroid_compaction, xml_geom, nb_cellules_xml, cell_compartment,\
     nb_complete_simulations, simulation_name,\
     study_type_folder_name, bool_diff, rn_name, nb_particles_per_cell, type_cell, available_data_date,\
-    available_data_name_file, available_data_combobox, nom_fichier_root, progress_bar, progress_bar_label, study_type
+    available_data_name_file, available_data_combobox, nom_fichier_root, progress_bar, progress_bar_label, study_type, choice_geom
 
     geom_list = ["Elg030um75CP", "Elg050um75CP", "Elg070um75CP", "Elg160um75CP", "Elg095um25CP",
                  "Elg095um50CP", "Elg095um75CP", "Elg095um75CP_2", "Elg100um40CP", "Neti140um75CP"]
+
+
+    choice_geom = choiceGeom_radiovalue.get()
 
     nom_config = (geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
                                                  # et ceux des ID de cellules supprimés de CPOP à G4,
