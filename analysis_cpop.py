@@ -854,8 +854,22 @@ def main():
     verbose
     verbose = verbose_radiovalue.get()
     create_folder_for_output_analysis_files()
+
     ##################### Gestion des ID de CPOP ##################################################
-    txt_id_deleted_cells = f"Cpop_Deleted_Cells_ID_Txt/IDCell_{nom_config}.txt"
+
+    if study_type == 0 :
+        # Si l'utilisateur veut des géométries qui propres à chaque lignée
+        if choice_geom == 1:
+            txt_id_deleted_cells = f"Cpop_Deleted_Cells_ID_Txt/New_Data/IDCell_{nom_config}.txt"
+            print("Deleted Cells", txt_id_deleted_cells)
+        # Si l'utilisateur veut des géométries qui ne sont pas propres à chaque lignée
+        else:
+            txt_id_deleted_cells = f"Cpop_Deleted_Cells_ID_Txt/Previous_Data/IDCell_{nom_config}.txt"
+            print("Deleted Cells", txt_id_deleted_cells)
+
+    elif study_type == 1:
+        txt_id_deleted_cells = f"Cpop_Deleted_Cells_ID_Txt/IDCell_{nom_config}.txt"
+
     real_id_cells, test_file_not_empty, deleted_id_txt =\
         geometry_informations.cpop_real_cell_id_determination(txt_id_deleted_cells, nb_cellules_xml)
     nb_cellules_reel = len(real_id_cells)
