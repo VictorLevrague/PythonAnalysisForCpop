@@ -507,7 +507,20 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     n_tab = (n1(ei) - n1(ef))
 
-    txt_cells_masses=f"Cpop_Masse_Txt/MassesCell_{nom_config}.txt"
+    if study_type == 0:
+        # Si l'utilisateur veut des géométries qui propres à chaque lignée
+        if choice_geom == 1:
+            txt_cells_masses=f"Cpop_Masse_Txt/New_Data/MassesCell_{nom_config}.txt"
+            print("Masse Cells", txt_cells_masses)
+        # Si l'utilisateur veut des géométries qui ne sont pas propres à chaque lignée
+        else:
+            txt_cells_masses = f"Cpop_Masse_Txt/Previous_Data/MassesCell_{nom_config}.txt"
+            print("Masse Cells", txt_cells_masses)
+
+    elif study_type == 1:
+        txt_cells_masses=f"Cpop_Masse_Txt/MassesCell_{nom_config}.txt"
+
+
     masses_cytoplasms, masses_nuclei, masses_cells = geometry_informations.masses_cells_reading(txt_cells_masses)
     dosen_append_sur_une_simu_np = ((data_run_level["fEdepn"]) * KEV_IN_J / masses_nuclei)
     dosec_append_sur_une_simu_np = ((data_run_level["fEdepc"]) * KEV_IN_J / masses_cytoplasms)
