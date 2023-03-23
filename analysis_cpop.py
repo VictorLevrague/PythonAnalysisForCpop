@@ -949,6 +949,7 @@ def add_new_buttons_to_graphic_window():
             xml_geom = "Cpop_Geom_XML/New_Data/" + nom_config + ".cfg" + ".xml"
             print(xml_geom)
             print(nom_config)
+            study_type_folder_name = "Internalization/New_Data"
 
         else:
             nom_config = (geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
@@ -957,10 +958,10 @@ def add_new_buttons_to_graphic_window():
             xml_geom = "Cpop_Geom_XML/Previous_Data/" + nom_config + ".cfg" + ".xml"
             print(xml_geom)
             print(nom_config)
+            study_type_folder_name = "Internalization/Previous_Data"
 
         cell_compartment = cell_compartment_combobox.get()
         simulation_name = cell_compartment
-        study_type_folder_name = "Internalization"
 
 
     elif study_type == 1:
@@ -985,12 +986,23 @@ def add_new_buttons_to_graphic_window():
     if study_type == 0:
         r_sph = geom_list[geom_name_combobox.current()][3:6]
         spheroid_compaction = geom_list[geom_name_combobox.current()][8:10]
+
         for i in range(0, len(output_folders_name)):
+
+            # Si l'utilisateur ne veut pas de géométrie dépendante de la lignée : Aucun changement dans le nom des data a rechercher
             if ("_" + cell_compartment + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
                 rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
-                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc")) in output_folders_name[i]:
+                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc")) in output_folders_name[i] and choice_geom != 1:
                 available_data_date.append(output_folders_name[i][0:10])
                 available_data_name_file.append(output_folders_name[i])
+
+            # Si l'utilisateur souhaite une géométrie dépendante : Le nom des data contiennent le nom de la lignée à la fin pour les distinguer
+            if ("_" + cell_compartment + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
+                rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
+                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc" + "_" + line )) in output_folders_name[i] and choice_geom == 1:
+                available_data_date.append(output_folders_name[i][0:10])
+                available_data_name_file.append(output_folders_name[i])
+
     elif study_type == 1:
         for i in range(0, len(output_folders_name)):
             r_sph = geom_list[geom_name_combobox.current()][4:7]
