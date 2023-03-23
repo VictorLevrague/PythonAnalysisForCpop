@@ -927,26 +927,48 @@ def add_new_buttons_to_graphic_window():
 
     choice_geom = choiceGeom_radiovalue.get()
 
-    nom_config = (geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
+    #nom_config = (geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
                                                  # et ceux des ID de cellules supprimés de CPOP à G4,
                                                  # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
 
-    xml_geom = "Cpop_Geom_XML/" + nom_config + ".cfg" + ".xml"
-
-    nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
-    # Nombre de cellules contenues dans le fichier .xml de géométrie créé par CPOP
 
     study_type = study_type_radiovalue.get()  # 0 for internalization study, 1 for labeling study
 
     nb_complete_simulations = int(nb_simulations_entry.get())
 
+    line = cell_line_combobox.get()
+
     if study_type == 0:
+        # Suivant le choix de l'utilisateur pour les géométries, le dossier où se trouve les fichiers .xml change ("Previous_Data" ou "New_Data" pour les données avec les nouvelles géométries)
+        # Le nom de la config change aussi : Pour distinguer entre les trois fichiers pour chaque lignée, pour chaque compaction et rayon de sphéroïde, on ajoute le nom de la lignée à la fin du fichier
+        if choice_geom == 1:
+            print("coucou")
+            nom_config = (geom_list[geom_name_combobox.current()]) + "_" + line  # Les fichiers contenant les masses de toutes les cellules,
+            # et ceux des ID de cellules supprimés de CPOP à G4,
+            # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
+            xml_geom = "Cpop_Geom_XML/New_Data/" + nom_config + ".cfg" + ".xml"
+            print(xml_geom)
+            print(nom_config)
+
+        else:
+            nom_config = (geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
+            # et ceux des ID de cellules supprimés de CPOP à G4,
+            # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
+            xml_geom = "Cpop_Geom_XML/Previous_Data/" + nom_config + ".cfg" + ".xml"
+            print(xml_geom)
+            print(nom_config)
+
         cell_compartment = cell_compartment_combobox.get()
         simulation_name = cell_compartment
         study_type_folder_name = "Internalization"
+
+
     elif study_type == 1:
         labeling_percentage_get = labeling_combobox.get()
         study_type_folder_name = "Labeling"
+
+    nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
+    # Nombre de cellules contenues dans le fichier .xml de géométrie créé par CPOP
 
     output_path = "Root/outputMultiCellulaire/" + study_type_folder_name + "/"
 
