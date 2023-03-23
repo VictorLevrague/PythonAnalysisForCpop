@@ -640,8 +640,8 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     analysis_dataframe_temp['cell_survival_global'] = survieg_append_sur_une_simu
 
-    # spheroid_dose = data_run_level[0]["fEdep_sph"] * KEV_IN_J / masse_tum
-    # analysis_dataframe_temp['spheroid_dose'] = spheroid_dose
+    spheroid_dose = data_run_level[0]["fEdep_sph"] * KEV_IN_J / masse_tum
+    analysis_dataframe_temp['spheroid_dose'] = spheroid_dose
 
 
     return pd.concat([analysis_dataframe, analysis_dataframe_temp], ignore_index=True)
