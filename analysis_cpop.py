@@ -23,6 +23,7 @@ import time
 import tkinter
 import tkinter.ttk
 import uproot
+import time
 
 KEV_IN_J = 1.60218 * 1e-16
 WATER_DENSITY = 1e-15  #kg/µm³
@@ -418,7 +419,7 @@ def open_root_file(simulation_id):
     return root_data_opened, indice_available_diffusion_info, indice_available_edep_sph_info
 
 def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_available_diffusion_info,
-                                real_id_cells, test_file_not_empty, deleted_id_txt, cell_line):
+                                real_id_cells, test_file_not_empty, deleted_id_txt, cell_line, data_run_level):
     """
     Opens root file corresponding to a MC simulation and calculates quantities like cell survivals
     Returns Check
@@ -445,7 +446,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     ind_end_of_run = root_data_opened["nameParticle"] == 'EndOfRun'
 
-    data_run_level = root_data_opened[ind_end_of_run]
+    #data_run_level = root_data_opened[ind_end_of_run]
 
     ########################## Vérification diffusion aux bonnes énergies ###############################
 
@@ -484,16 +485,33 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     ################ data_run_level ######################################
 
-    if test_file_not_empty != 0:
-        elements_to_remove = []
-        for ind_modif_id in range(0, len(data_run_level)):
-            if (data_run_level[ind_modif_id]["ID_Cell"]) in deleted_id_txt:
-                elements_to_remove.append(ind_modif_id)
-        data_run_level = np.delete(data_run_level, elements_to_remove, 0)
+    # if test_file_not_empty != 0:
+    #     elements_to_remove = []
+    #     for ind_modif_id in range(0, len(data_run_level)):
+    #         if (data_run_level[ind_modif_id]["ID_Cell"]) in deleted_id_txt:
+    #             elements_to_remove.append(ind_modif_id)
+    #     data_run_level = np.delete(data_run_level, elements_to_remove, 0)
 
-    for ind_modif_id in range(0, len(data_run_level)):
-        index_id_cell = np.where(real_id_cells == data_run_level[ind_modif_id]["ID_Cell"])
-        data_run_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
+    # start_time = time.time()
+    # for ind_modif_id in range(0, len(data_run_level)):
+    #
+    #     #print("ui")
+    #     index_id_cell = np.where(real_id_cells == data_run_level[ind_modif_id]["ID_Cell"])
+    #     print("ok")
+    #     print(np.shape(data_run_level))
+    #     #
+    #     print(np.shape(perfect_id_cells))
+    #     print(np.size(data_run_level))
+    #     print(np.size(perfect_id_cells))
+    #     print(index_id_cell)
+    #
+    #     data_run_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
+    #     #print("oh")
+    #
+    # #print(data_run_level)
+    # temps2 = time.time() - start_time
+    #
+    # print("c'est fini", temps2)
 
     ei = data_event_level["Ei"]  # Energy in keV
     ef = data_event_level["Ef"]
@@ -645,6 +663,61 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
 
     return pd.concat([analysis_dataframe, analysis_dataframe_temp], ignore_index=True)
+
+def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt, real_id_cells):
+
+    nb_cellules_reel = len(real_id_cells)
+    perfect_id_cells = np.arange(0,nb_cellules_reel)
+
+    ind_alphaplusplus = root_data_opened["nameParticle"] == 'alpha'
+    ind_alphaplus = root_data_opened["nameParticle"] == 'alpha+'
+    ind_helium = root_data_opened["nameParticle"] == 'helium'
+
+    data_event_level = (np.concatenate((root_data_opened[ind_alphaplusplus],
+                                       root_data_opened[ind_alphaplus],
+                                       root_data_opened[ind_helium])))
+
+    ind_end_of_run = root_data_opened["nameParticle"] == 'EndOfRun'
+
+    data_run_level = root_data_opened[ind_end_of_run]
+
+    for ind_modif_id in range(0, len(data_event_level)):
+        index_id_cell = np.where(real_id_cells == data_event_level[ind_modif_id]["ID_Cell"])
+        data_event_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
+
+        index_cellule_emission = np.where(real_id_cells == data_event_level[ind_modif_id]["Cellule_D_Emission"])
+        data_event_level[ind_modif_id]["Cellule_D_Emission"] = perfect_id_cells[index_cellule_emission]
+
+
+    print("ca commence")
+    if test_file_not_empty != 0:
+        elements_to_remove = []
+        start_time = time.time()
+        print(len(data_run_level))
+        for ind_modif_id in range(0, len(data_run_level)):
+            if (data_run_level[ind_modif_id]["ID_Cell"]) in deleted_id_txt:
+                elements_to_remove.append(ind_modif_id)
+            temps1 = time.time() - start_time
+        data_run_level = np.delete(data_run_level, elements_to_remove, 0)
+    print(temps1)
+    print("c'est en cours, ca a pris ", temps1, " secondes")
+
+    start_time = time.time()
+    for ind_modif_id in range(0, len(data_run_level)):
+
+        #print("ui")
+        index_id_cell = np.where(real_id_cells == data_run_level[ind_modif_id]["ID_Cell"])
+
+        data_run_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
+        #print("oh")
+
+    #print(data_run_level)
+    temps2 = time.time() - start_time
+
+    print("c'est fini", temps2)
+    return(data_run_level)
+    ### TO DO ...
+
 
 
 def if_internalization_study():
@@ -913,9 +986,12 @@ def main():
 
     for simulation_id in indexes_root_files_without_errors_np:
         root_data_np, indice_available_diffusion_info, indice_available_edep_sph_info = open_root_file(simulation_id)
+        if simulation_id == 0 :
+            data_run_level = eliminate_bad_cell_ID(root_data_np, test_file_not_empty, deleted_id_txt, real_id_cells)
+
         analysis_dataframe = calculations_from_root_file(analysis_dataframe, root_data_np,
                                                        indice_available_diffusion_info,
-                                                       real_id_cells, test_file_not_empty, deleted_id_txt, type_cell)
+                                                       real_id_cells, test_file_not_empty, deleted_id_txt, type_cell, data_run_level)
 
     if verbose == 1:
         print_geometry_informations()
