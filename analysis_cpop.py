@@ -891,12 +891,18 @@ def main():
     r_tum = float(r_sph) * 10**(-6) #in meters
     masse_tum=((4/3)*np.pi*r_tum**3)*1000 #in kg
     ###### Positions ######
-    positions_x, positions_y, positions_z = geometry_informations.positions_cells_reading(xml_geom, real_id_cells)
 
-    zone_cell, nb_cell_zone_1, nb_cell_zone_2 = determine_cells_in_2_spheroid_zones(positions_x,
+    if study_type == 1 or choice_geom == 0:
+        positions_x, positions_y, positions_z = geometry_informations.positions_cells_reading(xml_geom, real_id_cells)
+        zone_cell, nb_cell_zone_1, nb_cell_zone_2 = determine_cells_in_2_spheroid_zones(positions_x,
                                                     positions_y, positions_z,
                                                     radius_zone_1 = 100, radius_zone_2 = 140,
                                                     nb_cells = nb_cellules_reel)
+
+    else :
+        nb_cell_zone_1 = nb_cellules_reel
+        nb_cell_zone_2 = 0
+        zone_cell = np.ones(nb_cellules_reel)
 
 
     indexes_root_files_without_errors_np, nb_files_with_errors = id_deletion_of_root_outputs_with_errors()
