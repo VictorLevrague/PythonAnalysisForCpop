@@ -66,7 +66,9 @@ def positions_cells_reading(xml_file_with_cells_positions, real_id_cells):
     """
     cells_positions_xml_opened = minidom.parse(xml_file_with_cells_positions)
     cells_positions_xml_opened_with_cell_tag = cells_positions_xml_opened.getElementsByTagName('CELL')
-    nb_cellules_xml = count_number_of_cells_in_xml_file(xml_file_with_cells_positions)
+    nb_cellules_xml = 680000
+    del(cells_positions_xml_opened)
+    #nb_cellules_xml = count_number_of_cells_in_xml_file(xml_file_with_cells_positions)
     ###
     positions_x=np.zeros(nb_cellules_xml)
     positions_y=np.zeros(nb_cellules_xml)

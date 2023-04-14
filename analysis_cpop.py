@@ -772,7 +772,7 @@ def graphic_window():
     number_particles_per_cell_choice = tkinter.StringVar()
     number_particles_per_cell_combobox = tkinter.ttk.Combobox(window, width=35,
                                                           textvariable=number_particles_per_cell_choice)
-    number_particles_per_cell_combobox['values'] = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "13","16", "20",
+    number_particles_per_cell_combobox['values'] = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "11", "12","13", "14", "15", "16", "20",
                                                     "23","26","31","42"]
     number_particles_per_cell_combobox.current(0)
     number_particles_per_cell_combobox.place(x=400, y=350)
@@ -978,6 +978,15 @@ def add_new_buttons_to_graphic_window():
             print(nom_config)
             study_type_folder_name = "Internalization/New_Data"
 
+            if line == "HSG" :
+                nb_cellules_xml = 680000
+
+            elif line == "V79" :
+                nb_cellules_xml = 750000
+
+            else :
+                nb_cellules_xml = 780000
+
         else:
             nom_config = (geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
             # et ceux des ID de cellules supprimés de CPOP à G4,
@@ -986,6 +995,7 @@ def add_new_buttons_to_graphic_window():
             print(xml_geom)
             print(nom_config)
             study_type_folder_name = "Internalization/Previous_Data"
+            nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
 
         cell_compartment = cell_compartment_combobox.get()
         simulation_name = cell_compartment
@@ -994,17 +1004,18 @@ def add_new_buttons_to_graphic_window():
     elif study_type == 1:
         labeling_percentage_get = labeling_combobox.get()
         study_type_folder_name = "Labeling"
+        nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
 
-    nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
+    #nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
     # Nombre de cellules contenues dans le fichier .xml de géométrie créé par CPOP
-
+    print(nb_cellules_xml)
     output_path = "Root/outputMultiCellulaire/" + study_type_folder_name + "/"
 
     output_folders_name = [f for f in os.listdir(output_path)]
 
     bool_diff = ["Yes","No"]
     rn_name = radionuclide_entry.get()
-    nb_particles_per_cell = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "13","16","20","23","26","31","42"]
+    nb_particles_per_cell = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "11", "12", "13", "14", "15", "16","20","23","26","31","42"]
 
     type_cell = cell_line_combobox.current()
 
