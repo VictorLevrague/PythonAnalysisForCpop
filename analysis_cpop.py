@@ -129,12 +129,17 @@ def log_normal(x, a, b, c):
     return 0.344+(a/(x*b*np.sqrt(2*np.pi))) * np.exp(-(np.log(x)-c)**2 / (2*b**2))
 
 
-def dn1_de_continuous_mv_tables(cell_line):
+def dn1_de_continuous_mv_tables(cell_line, method_threshold = "Interp"):
     """
     Returns a continous function that calculates dn1_de in function of energy. It depends on the radiobiological alpha
     coefficient. These are extracted from alpha tables that Mario Alcoler-Avila calculated.
 
     The data are smoothered via a moving average method.
+
+    method_threshold argument corresponds to the extrapolation method under 100 keV/n:
+    - Interp is a linear interpolation between dn1_de = 0 at energy = 0 and the last alpha point
+    - Zero sets a strict value of 0 for every dn1_de under the threshold
+    - Last sets the value of every alpha under the threshold as the last dn1_de data, i.e. alpha(100 keV/n)
     """
 
     alpha_table = pd.read_csv(f"AlphasTables/alpha_He_{cell_line_combobox.get()}.csv")
@@ -144,21 +149,6 @@ def dn1_de_continuous_mv_tables(cell_line):
     let_discrete_from_tables = alpha_table["LET (keV/um)"].to_numpy().astype(float)
     conversion_energy_in_let_srim = let_discrete_from_tables
     conversion_energy_in_let_g4 = conversion_energy_in_let("G4", e_discrete_from_tables)
-    dn1_de_raw = -np.log(1 - alpha_discrete_from_tables  * UNIT_COEFFICIENT_A \
-                             * conversion_energy_in_let_srim / surface_centerslice_cell_line) \
-             / (length_of_cylinderslice_cell * conversion_energy_in_let_g4)
-                    #calculation of number of lethal events per keV, via Mario's alpha table
-
-    #dn1_de_raw = np.insert(dn1_de_raw, 0, 0, axis=0)
-    _dn1_de_interpolated = interpolate.interp1d(e_discrete_from_tables, dn1_de_raw, fill_value="extrapolate",
-                                               kind="linear")
-
-    # dn1_de_interpolated= interpolate.interp1d(e_discrete_from_tables, dn1_de, fill_value=_dn1_de_interpolated(400),
-    #                                             kind="linear", bounds_error=False)
-
-    # dn1_de_interpolated = interpolate.interp1d(e_discrete_from_tables, dn1_de, fill_value="interpolate",
-    #                                            kind="linear", bounds_error=False)
-
 
     alpha_discrete_mv = moving_average_alpha_tables(alpha_discrete_from_tables, cell_line)
 
@@ -167,13 +157,7 @@ def dn1_de_continuous_mv_tables(cell_line):
              / (length_of_cylinderslice_cell * conversion_energy_in_let_g4)
     # calculation of number of lethal events per keV
 
-    dn1_de_with_alpha_mv = np.insert(dn1_de_with_alpha_mv, 0, 0, axis=0)
-
     e_discrete_from_tables_with_0 = np.insert(e_discrete_from_tables, 0, 0, axis=0)
-
-    dn1_de_with_alpha_mv_continuous = interpolate.interp1d(e_discrete_from_tables_with_0, dn1_de_with_alpha_mv,
-                                             fill_value="interpolate", kind="linear",
-                                             bounds_error=False)
 
     dn1_de = -np.log(1 - alpha_discrete_from_tables  * UNIT_COEFFICIENT_A \
                              * conversion_energy_in_let_srim / surface_centerslice_cell_line) \
@@ -182,48 +166,29 @@ def dn1_de_continuous_mv_tables(cell_line):
 
     dn1_de = moving_average_dn1_de_tables(dn1_de, cell_line)
 
-    dn1_de = np.insert(dn1_de, 0, 0, axis=0)
-
-    dn1_de_continuous = interpolate.interp1d(e_discrete_from_tables_with_0, dn1_de,
-                                                              fill_value="extrapolate", kind="linear",
+    if method_threshold == "Interp":
+        dn1_de = np.insert(dn1_de, 0, 0, axis=0)
+        dn1_de_continuous = interpolate.interp1d(e_discrete_from_tables_with_0, dn1_de, kind="linear")
+    elif method_threshold == "Zero":
+        dn1_de_continuous = interpolate.interp1d(e_discrete_from_tables, dn1_de,
+                                                                  fill_value=(0,"extrapolate"), kind="linear",
+                                                                  bounds_error=False)
+    elif method_threshold == "Last":
+        dn1_de_continuous = interpolate.interp1d(e_discrete_from_tables, dn1_de,
+                                                              fill_value=(dn1_de[0],"extrapolate"), kind="linear",
                                                               bounds_error=False)
 
-    # plt.subplot(221)
+    # print(dn1_de_continuous(0))
+    # print(dn1_de_continuous(100))
+    # print(dn1_de_continuous(400))
+
     # plt.plot(e_discrete_from_tables_with_0/1000, dn1_de_continuous(e_discrete_from_tables_with_0), color='red', label = 'moving average dn1_dE')
-    # plt.legend()
-    # plt.subplot(222)
-    # # alpha_discrete_from_tables = np.insert(alpha_discrete_from_tables, 0, 0, axis=0)
-    # # plt.plot(e_discrete_from_tables_with_0 / 1000, alpha_discrete_from_tables, color='red', label = 'alpha tables')
-    # plt.plot(e_discrete_from_tables_with_0/1000, dn1_de_with_alpha_mv_continuous(e_discrete_from_tables_with_0), color='blue', label = 'dn1_de with alpha mv')
-    # plt.legend()
-    # plt.subplot(223)
-    # plt.plot(e_discrete_from_tables / 1000, _dn1_de_interpolated(e_discrete_from_tables), color='blue', label = 'dn1_de_raw')
-    # plt.legend()
-    # plt.subplot(224)
-    # alpha_discrete_mv = np.insert(alpha_discrete_mv, 0, 0, axis=0)
-    # plt.plot(e_discrete_from_tables_with_0/1000, alpha_discrete_mv, color='blue', label = 'mv alpha tables')
-    # # plt.plot(e_discrete_from_tables, dn1_de, color='red')
     # plt.legend()
     #
     # plt.show()
 
-    #alpha_interpolated = interpolate.interp1d(e_discrete_from_tables, alpha_discrete_from_tables, fill_value=0,
-    #                                           kind="linear", bounds_error=False)
-    # alpha_interpolated_extrapolate = interpolate.interp1d(e_discrete_from_tables, alpha_discrete_from_tables,
-    #                                           fill_value="extrapolate", kind="linear")
-    # x = np.arange(0, 40000) #MeV juste for the plot
-    # plt.plot(x/1000, alpha_interpolated(x), color='b', label="Linear interpolation from Alpha table,"
-    #                                                          " with cut at 100 keV/n")
-    # plt.ylabel('Alpha coefficient (Gy-1)', fontsize=15)
-    # plt.xlabel('Energy (MeV)', fontsize=15)
-    # plt.title("Alpha coefficient as function of the energy", style='italic', fontsize=16)
-    # plt.text(1, 0.5, '<-- 100 keV/n', color='r', style='italic')
-    # plt.legend()
-    # plt.show()
-    # plt.savefig("Alpha_As_Function_Of_E_With_Cut_100keV_n.png", dpi=600)
-
-    # return dn1_de_interpolated
     return dn1_de_continuous
+
 
 def moving_average_alpha_tables(alpha_tables, cell_line):
     """
@@ -520,7 +485,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     ###Linear interpolation of alpha tables : #outdated
     #dn1_de_continuous_pre_calculated = dn1_de_continuous_interp_tables(type_cell)
     ###Moving average of dn1_dE from alpha tables :
-    dn1_de_continuous_pre_calculated = dn1_de_continuous_mv_tables(type_cell)
+    dn1_de_continuous_pre_calculated = dn1_de_continuous_mv_tables(type_cell, method_threshold="Last")
     n1 = number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated)
 
     n_tab = (n1(ei) - n1(ef))
@@ -782,6 +747,8 @@ def graphic_window():
 
     window = tkinter.Tk()
     window.geometry("1000x800")
+
+    window.title("CAMPINGS")
 
     study_type_label = tkinter.Label(window, text = "Type of study :", fg='red')
     study_type_label.place (x=100, y=50)
