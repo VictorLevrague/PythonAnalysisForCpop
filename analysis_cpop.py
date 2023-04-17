@@ -485,7 +485,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     ###Linear interpolation of alpha tables : #outdated
     #dn1_de_continuous_pre_calculated = dn1_de_continuous_interp_tables(type_cell)
     ###Moving average of dn1_dE from alpha tables :
-    dn1_de_continuous_pre_calculated = dn1_de_continuous_mv_tables(type_cell, method_threshold="Last")
+    dn1_de_continuous_pre_calculated = dn1_de_continuous_mv_tables(type_cell, method_threshold="Interp")
     n1 = number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated)
 
     n_tab = (n1(ei) - n1(ef))
@@ -494,11 +494,11 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
         # Si l'utilisateur veut des géométries qui propres à chaque lignée
         if choice_geom == 1:
             txt_cells_masses=f"Cpop_Masse_Txt/New_Data/MassesCell_{nom_config}.txt"
-            print("Masse Cells", txt_cells_masses)
+            # print("Masse Cells", txt_cells_masses)
         # Si l'utilisateur veut des géométries qui ne sont pas propres à chaque lignée
         else:
             txt_cells_masses = f"Cpop_Masse_Txt/Previous_Data/MassesCell_{nom_config}.txt"
-            print("Masse Cells", txt_cells_masses)
+            # print("Masse Cells", txt_cells_masses)
 
     elif study_type == 1:
         txt_cells_masses=f"Cpop_Masse_Txt/MassesCell_{nom_config}.txt"
@@ -654,7 +654,7 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
         data_event_level[ind_modif_id]["Cellule_D_Emission"] = perfect_id_cells[index_cellule_emission]
 
 
-    print("ca commence")
+    # print("ca commence")
     if test_file_not_empty != 0:
         elements_to_remove = []
         start_time = time.time()
@@ -664,8 +664,8 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
                 elements_to_remove.append(ind_modif_id)
             temps1 = time.time() - start_time
         data_run_level = np.delete(data_run_level, elements_to_remove, 0)
-    print(temps1)
-    print("c'est en cours, ca a pris ", temps1, " secondes")
+    # print(temps1)
+    # print("c'est en cours, ca a pris ", temps1, " secondes")
 
     start_time = time.time()
     for ind_modif_id in range(0, len(data_run_level)):
@@ -679,7 +679,7 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
     #print(data_run_level)
     temps2 = time.time() - start_time
 
-    print("c'est fini", temps2)
+    # print("c'est fini", temps2)
     return(data_run_level)
     ### TO DO ...
 
