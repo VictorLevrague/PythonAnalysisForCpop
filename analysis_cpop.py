@@ -485,7 +485,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     ###Linear interpolation of alpha tables : #outdated
     #dn1_de_continuous_pre_calculated = dn1_de_continuous_interp_tables(type_cell)
     ###Moving average of dn1_dE from alpha tables :
-    dn1_de_continuous_pre_calculated = dn1_de_continuous_mv_tables(type_cell, method_threshold="Interp")
+    dn1_de_continuous_pre_calculated = dn1_de_continuous_mv_tables(type_cell, method_threshold="Zero")
     n1 = number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated)
 
     n_tab = (n1(ei) - n1(ef))
@@ -653,8 +653,6 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
         index_cellule_emission = np.where(real_id_cells == data_event_level[ind_modif_id]["Cellule_D_Emission"])
         data_event_level[ind_modif_id]["Cellule_D_Emission"] = perfect_id_cells[index_cellule_emission]
 
-
-    # print("ca commence")
     if test_file_not_empty != 0:
         elements_to_remove = []
         start_time = time.time()
@@ -664,8 +662,6 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
                 elements_to_remove.append(ind_modif_id)
             temps1 = time.time() - start_time
         data_run_level = np.delete(data_run_level, elements_to_remove, 0)
-    # print(temps1)
-    # print("c'est en cours, ca a pris ", temps1, " secondes")
 
     start_time = time.time()
     for ind_modif_id in range(0, len(data_run_level)):
@@ -676,10 +672,8 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
         data_run_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
         #print("oh")
 
-    #print(data_run_level)
     temps2 = time.time() - start_time
 
-    # print("c'est fini", temps2)
     return(data_run_level)
     ### TO DO ...
 
