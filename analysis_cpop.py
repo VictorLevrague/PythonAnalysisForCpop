@@ -615,8 +615,8 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     exp_surviel = np.exp(-np.asarray(surviel_append_sur_une_simu))
     tcp_une_simu = np.prod(exp_surviel)
     tcp_test_formula = np.prod(1 - surviel_append_sur_une_simu)
-    analysis_dataframe_temp['tcp_binomial'] = tcp_une_simu
-    analysis_dataframe_temp['tcp_formula_poisson'] = tcp_test_formula
+    analysis_dataframe_temp['tcp_formula_poisson'] = tcp_une_simu
+    analysis_dataframe_temp['tcp_binomial'] = tcp_test_formula
 
     survieg_append_sur_une_simu = \
         np.exp(-n_unique_tot_sur_une_simu - BETAG[type_cell] * (dosen_append_sur_une_simu_np ** 2))
