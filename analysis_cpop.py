@@ -296,6 +296,11 @@ def mean_and_std_calculation_dataframe(analysis_dataframe):
     analysis_dataframe['tcp_binomial_std'] = analysis_dataframe.groupby(['id_cell']) \
         ['tcp_binomial'].std()
     analysis_dataframe['tcp_binomial'] = analysis_dataframe.groupby(['id_cell'])['tcp_binomial'].mean()
+
+    analysis_dataframe['tcp_binomial_global_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['tcp_binomial_global'].std()
+    analysis_dataframe['tcp_binomial_global'] = analysis_dataframe.groupby(['id_cell'])['tcp_binomial_global'].mean()
+
     analysis_dataframe['cell_survival_local_std'] = analysis_dataframe.groupby(['id_cell'])\
                                                                         ['cell_survival_local'].std()
     analysis_dataframe['cell_survival_local'] = analysis_dataframe.groupby(['id_cell'])['cell_survival_local'].mean()
@@ -317,6 +322,13 @@ def mean_and_std_calculation_dataframe(analysis_dataframe):
     analysis_dataframe['tcp_formula_poisson_std'] = analysis_dataframe.groupby(['id_cell']) \
         ['tcp_formula_poisson'].std()
     analysis_dataframe['tcp_formula_poisson'] = analysis_dataframe.groupby(['id_cell'])['tcp_formula_poisson'].mean()
+
+    analysis_dataframe['tcp_formula_poisson_global_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['tcp_formula_poisson_global'].std()
+
+    analysis_dataframe['tcp_formula_poisson_global'] = analysis_dataframe.groupby(['id_cell'])[
+        'tcp_formula_poisson_global'].mean()
+
     analysis_dataframe['biological_dose_(gy)'] = analysis_dataframe.groupby(['id_cell'])['biological_dose_(gy)'].mean()
     analysis_dataframe['edep_moy_per_nucleus_cross_(kev)'] = edep_moy_per_nucleus_cross.mean()
 
@@ -612,6 +624,8 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     analysis_dataframe_temp['biological_dose_(gy)'] = dose_bio_append_sur_une_simu
 
+    #################################### TCP avec les survies cellulaires locales ##########################
+
     exp_surviel = np.exp(-np.asarray(surviel_append_sur_une_simu))
     tcp_une_simu = np.prod(exp_surviel)
     tcp_test_formula = np.prod(1 - surviel_append_sur_une_simu)
@@ -622,6 +636,14 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
         np.exp(-n_unique_tot_sur_une_simu - BETAG[type_cell] * (dosen_append_sur_une_simu_np ** 2))
 
     analysis_dataframe_temp['cell_survival_global'] = survieg_append_sur_une_simu
+
+    #################################### TCP avec les survies cellulaire globales ##########################
+
+    exp_survieg = np.exp(-np.asarray(survieg_append_sur_une_simu))
+    tcp_une_simu_global = np.prod(exp_survieg)
+    tcp_test_formula_global = np.prod(1 - survieg_append_sur_une_simu)
+    analysis_dataframe_temp['tcp_formula_poisson_global'] = tcp_une_simu_global
+    analysis_dataframe_temp['tcp_binomial_global'] = tcp_test_formula_global
 
     spheroid_dose = data_run_level[0]["fEdep_sph"] * KEV_IN_J / masse_tum
     analysis_dataframe_temp['spheroid_dose'] = spheroid_dose
