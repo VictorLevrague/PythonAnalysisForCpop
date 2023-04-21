@@ -485,7 +485,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     ###Linear interpolation of alpha tables : #outdated
     #dn1_de_continuous_pre_calculated = dn1_de_continuous_interp_tables(type_cell)
     ###Moving average of dn1_dE from alpha tables :
-    dn1_de_continuous_pre_calculated = dn1_de_continuous_mv_tables(type_cell, method_threshold="Zero")
+    dn1_de_continuous_pre_calculated = dn1_de_continuous_mv_tables(type_cell, method_threshold="Interp")
     n1 = number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated)
 
     n_tab = (n1(ei) - n1(ef))
