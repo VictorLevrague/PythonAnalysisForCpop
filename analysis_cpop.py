@@ -664,13 +664,9 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
         data_run_level = np.delete(data_run_level, elements_to_remove, 0)
 
     start_time = time.time()
-    for ind_modif_id in range(0, len(data_run_level)):
+    data_run_level["ID_Cell"] = perfect_id_cells
 
-        #print("ui")
-        index_id_cell = np.where(real_id_cells == data_run_level[ind_modif_id]["ID_Cell"])
-
-        data_run_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
-        #print("oh")
+    print(data_run_level[0:5000])
 
     temps2 = time.time() - start_time
 
