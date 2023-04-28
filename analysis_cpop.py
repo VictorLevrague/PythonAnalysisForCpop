@@ -666,11 +666,11 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
     start_time = time.time()
     data_run_level["ID_Cell"] = perfect_id_cells
 
-    print(data_run_level[0:5000])
+    print(data_run_level)
 
     temps2 = time.time() - start_time
 
-    return(data_run_level)
+    return data_run_level
     ### TO DO ...
 
 
