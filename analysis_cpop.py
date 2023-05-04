@@ -384,7 +384,7 @@ def open_root_file(simulation_id):
     return root_data_opened, indice_available_diffusion_info, indice_available_edep_sph_info
 
 def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_available_diffusion_info,
-                                real_id_cells, test_file_not_empty, deleted_id_txt, cell_line, data_run_level):
+                                real_id_cells, test_file_not_empty, deleted_id_txt, cell_line, elements_to_remove):
     """
     Opens root file corresponding to a MC simulation and calculates quantities like cell survivals
     Returns Check
@@ -411,7 +411,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     ind_end_of_run = root_data_opened["nameParticle"] == 'EndOfRun'
 
-    #data_run_level = root_data_opened[ind_end_of_run]
+    data_run_level = root_data_opened[ind_end_of_run]
 
     ########################## Vérification diffusion aux bonnes énergies ###############################
 
@@ -477,6 +477,13 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     # temps2 = time.time() - start_time
     #
     # print("c'est fini", temps2)
+
+    if test_file_not_empty != 0:
+        data_run_level = np.delete(data_run_level, elements_to_remove, 0)
+
+    # start_time = time.time()
+    data_run_level["ID_Cell"] = perfect_id_cells
+
 
     ei = data_event_level["Ei"]  # Energy in keV
     ef = data_event_level["Ef"]
@@ -660,18 +667,8 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
         for ind_modif_id in range(0, len(data_run_level)):
             if (data_run_level[ind_modif_id]["ID_Cell"]) in deleted_id_txt:
                 elements_to_remove.append(ind_modif_id)
-            temps1 = time.time() - start_time
-        data_run_level = np.delete(data_run_level, elements_to_remove, 0)
 
-    start_time = time.time()
-    data_run_level["ID_Cell"] = perfect_id_cells
-
-    print(data_run_level)
-
-    temps2 = time.time() - start_time
-
-    return data_run_level
-    ### TO DO ...
+    return elements_to_remove
 
 
 
@@ -944,11 +941,11 @@ def main():
     for simulation_id in indexes_root_files_without_errors_np:
         root_data_np, indice_available_diffusion_info, indice_available_edep_sph_info = open_root_file(simulation_id)
         if simulation_id == 0 :
-            data_run_level = eliminate_bad_cell_ID(root_data_np, test_file_not_empty, deleted_id_txt, real_id_cells)
+            elements_to_remove = eliminate_bad_cell_ID(root_data_np, test_file_not_empty, deleted_id_txt, real_id_cells)
 
         analysis_dataframe = calculations_from_root_file(analysis_dataframe, root_data_np,
                                                        indice_available_diffusion_info,
-                                                       real_id_cells, test_file_not_empty, deleted_id_txt, type_cell, data_run_level)
+                                                       real_id_cells, test_file_not_empty, deleted_id_txt, type_cell, elements_to_remove)
 
     if verbose == 1:
         print_geometry_informations()
