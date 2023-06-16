@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 
 import geometry_informations
 import math
+import nanox_low_energy as nanox
 import numpy as np
 import os
 import pandas as pd
@@ -129,67 +130,6 @@ def log_normal(x, a, b, c):
     return 0.344+(a/(x*b*np.sqrt(2*np.pi))) * np.exp(-(np.log(x)-c)**2 / (2*b**2))
 
 
-def dn1_de_continuous_mv_tables(cell_line, method_threshold = "Interp"):
-    """
-    Returns a continous function that calculates dn1_de in function of energy. It depends on the radiobiological alpha
-    coefficient. These are extracted from alpha tables that Mario Alcoler-Avila calculated.
-
-    The data are smoothered via a moving average method.
-
-    method_threshold argument corresponds to the extrapolation method under 100 keV/n:
-    - Interp is a linear interpolation between dn1_de = 0 at energy = 0 and the last alpha point
-    - Zero sets a strict value of 0 for every dn1_de under the threshold
-    - Last sets the value of every alpha under the threshold as the last dn1_de data, i.e. alpha(100 keV/n)
-    """
-
-    alpha_table = pd.read_csv(f"AlphasTables/alpha_He_{cell_line_combobox.get()}.csv")
-    alpha_discrete_from_tables = alpha_table["Alpha (Gy-1)"].to_numpy().astype(float)
-    e_discrete_from_tables = alpha_table["E(MeV/n)"].to_numpy().astype(float)*1000*4   #keV
-    surface_centerslice_cell_line = math.pi * radius_nucleus_cell_line[cell_line] ** 2   # µm²
-    let_discrete_from_tables = alpha_table["LET (keV/um)"].to_numpy().astype(float)
-    conversion_energy_in_let_srim = let_discrete_from_tables
-    conversion_energy_in_let_g4 = conversion_energy_in_let("G4", e_discrete_from_tables)
-
-    alpha_discrete_mv = moving_average_alpha_tables(alpha_discrete_from_tables, cell_line)
-
-    dn1_de_with_alpha_mv = -np.log(1 - alpha_discrete_mv * UNIT_COEFFICIENT_A \
-                     * conversion_energy_in_let_srim / surface_centerslice_cell_line) \
-             / (length_of_cylinderslice_cell * conversion_energy_in_let_g4)
-    # calculation of number of lethal events per keV
-
-    e_discrete_from_tables_with_0 = np.insert(e_discrete_from_tables, 0, 0, axis=0)
-
-    dn1_de = -np.log(1 - alpha_discrete_from_tables  * UNIT_COEFFICIENT_A \
-                             * conversion_energy_in_let_srim / surface_centerslice_cell_line) \
-             / (length_of_cylinderslice_cell * conversion_energy_in_let_g4)
-                    #calculation of number of lethal events per keV
-
-    dn1_de = moving_average_dn1_de_tables(dn1_de, cell_line)
-
-    if method_threshold == "Interp":
-        dn1_de = np.insert(dn1_de, 0, 0, axis=0)
-        dn1_de_continuous = interpolate.interp1d(e_discrete_from_tables_with_0, dn1_de, kind="linear")
-    elif method_threshold == "Zero":
-        dn1_de_continuous = interpolate.interp1d(e_discrete_from_tables, dn1_de,
-                                                                  fill_value=(0,"extrapolate"), kind="linear",
-                                                                  bounds_error=False)
-    elif method_threshold == "Last":
-        dn1_de_continuous = interpolate.interp1d(e_discrete_from_tables, dn1_de,
-                                                              fill_value=(dn1_de[0],"extrapolate"), kind="linear",
-                                                              bounds_error=False)
-
-    # print(dn1_de_continuous(0))
-    # print(dn1_de_continuous(100))
-    # print(dn1_de_continuous(400))
-
-    # plt.plot(e_discrete_from_tables_with_0/1000, dn1_de_continuous(e_discrete_from_tables_with_0), color='red', label = 'moving average dn1_dE')
-    # plt.legend()
-    #
-    # plt.show()
-
-    return dn1_de_continuous
-
-
 def moving_average_alpha_tables(alpha_tables, cell_line):
     """
     Returns a numpy array with alpha tables smoothered by moving average method
@@ -230,16 +170,6 @@ def moving_average_dn1_de_tables(dn1_de_from_tables, cell_line):
 
     return moving_average_dn1_de_np
 
-def number_of_lethal_events_for_alpha_traversals(dn1_de_function):
-    """
-    Returns the function that converts an energy E into the cumulated number of lethal damage from 0 to E
-    """
-    energie_table_binned = np.linspace(0, Emax, num=bins)
-    f_he_cumulative_int = scipy.integrate.cumtrapz(dn1_de_function(energie_table_binned),
-                                                   energie_table_binned, initial=0)
-    n1 = interpolate.interp1d(energie_table_binned, f_he_cumulative_int, fill_value="extrapolate",
-                              kind="linear")  # fonction primitive continue en fonction de E
-    return n1
 
 def determine_cells_in_2_spheroid_zones(positions_x, positions_y, positions_z, radius_zone_1, radius_zone_2, nb_cells):
     """
@@ -502,8 +432,9 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     ###Linear interpolation of alpha tables : #outdated
     #dn1_de_continuous_pre_calculated = dn1_de_continuous_interp_tables(type_cell)
     ###Moving average of dn1_dE from alpha tables :
-    dn1_de_continuous_pre_calculated = dn1_de_continuous_mv_tables(type_cell, method_threshold="Interp")
-    n1 = number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated)
+    dn1_de_continuous_pre_calculated = nanox.dn1_de_continuous_mv_tables(line, "em", method_threshold="Interp")
+    emax = np.max(ei)
+    n1 = nanox.number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated, emax)
 
     n_tab = (n1(ei) - n1(ef))
 
@@ -1002,7 +933,8 @@ def add_new_buttons_to_graphic_window():
     global r_sph, nom_config, spheroid_compaction, xml_geom, nb_cellules_xml, cell_compartment,\
     nb_complete_simulations, simulation_name,\
     study_type_folder_name, bool_diff, rn_name, nb_particles_per_cell, type_cell, available_data_date,\
-    available_data_name_file, available_data_combobox, nom_fichier_root, progress_bar, progress_bar_label, study_type, choice_geom
+    available_data_name_file, available_data_combobox, nom_fichier_root, progress_bar, progress_bar_label, study_type,\
+    choice_geom, line
 
     geom_list = ["Elg030um75CP", "Elg050um75CP", "Elg070um75CP", "Elg160um75CP", "Elg095um25CP",
                  "Elg095um50CP", "Elg095um75CP", "Elg095um75CP_2", "Elg100um40CP", "Neti140um75CP"]
