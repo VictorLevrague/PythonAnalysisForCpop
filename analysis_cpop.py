@@ -703,8 +703,11 @@ def graphic_window():
                            variable=study_type_radiovalue,value=0, command=if_internalization_study)
     study_type_radiovalue_1=tkinter.Radiobutton(window, text="Labeling", variable=study_type_radiovalue,value=1,
                            command=if_labeling_study)
+    study_type_radiovalue_2 = tkinter.Radiobutton(window, text="BNCT", variable=study_type_radiovalue, value=2,
+                                                  command=if_internalization_study)
     study_type_radiovalue_0.place(x=390,y=50)
-    study_type_radiovalue_1.place(x=590, y=50)
+    study_type_radiovalue_1.place(x=520, y=50)
+    study_type_radiovalue_2.place(x=620, y=50)
 
     cell_compartment_label = tkinter.Label(window, text="Intra cellular distribution name :", fg='blue')
     cell_compartment_label.place(x=100, y=100)
