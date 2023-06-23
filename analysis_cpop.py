@@ -728,6 +728,77 @@ def number_of_lethals_events(data_event_level, particle):
     return n_unique
 
 
+def calculate_doses(data_run_level, data_event_level, indice_available_diffusion_info, analysis_dataframe_temp):
+    """
+            Takes into argument the energy of each event, the event and the indice available diffusion info
+            Returns, for each cell in one simulation, the dose at the nucleus caused by the crossfire, the dose at the
+            nucleus not caused by the crossfire and a dataframe containing the dose at the nucleus, at the cytoplasm and at
+            the cell
+    """
+
+    ei = data_event_level["Ei"]  # Energy in keV
+    ef = data_event_level["Ef"]
+
+    if study_type == 0 or study_type == 2:
+        # Si l'utilisateur veut des géométries qui propres à chaque lignée
+        if choice_geom == 1:
+            txt_cells_masses = f"Cpop_Masse_Txt/New_Data/MassesCell_{nom_config}.txt"
+        # Si l'utilisateur veut des géométries qui ne sont pas propres à chaque lignée
+        else:
+            txt_cells_masses = f"Cpop_Masse_Txt/Previous_Data/MassesCell_{nom_config}.txt"
+
+    elif study_type == 1:
+        txt_cells_masses = f"Cpop_Masse_Txt/MassesCell_{nom_config}.txt"
+
+    masses_cytoplasms, masses_nuclei, masses_cells = geometry_informations.masses_cells_reading(txt_cells_masses)
+    dosen_append_sur_une_simu_np = ((data_run_level["fEdepn"]) * KEV_IN_J / masses_nuclei)
+    dosec_append_sur_une_simu_np = ((data_run_level["fEdepc"]) * KEV_IN_J / masses_cytoplasms)
+
+    analysis_dataframe_temp['dose_nucleus_(gy)'] = dosen_append_sur_une_simu_np
+    analysis_dataframe_temp['dose_cytoplasm_(gy)'] = dosec_append_sur_une_simu_np
+    analysis_dataframe_temp['dose_cell_(gy)'] = dosen_append_sur_une_simu_np + dosec_append_sur_une_simu_np
+
+    nb_particles_per_nucleus = np.bincount((data_event_level["ID_Cell"]).astype(int))
+    ei_ef_unique_sur_une_simu = np.bincount(data_event_level["ID_Cell"].astype(int), weights=ei - ef)
+
+    while len(ei_ef_unique_sur_une_simu) < nb_cellules_reel:
+        ei_ef_unique_sur_une_simu = np.append(ei_ef_unique_sur_une_simu, 0)
+
+    while len(nb_particles_per_nucleus) < nb_cellules_reel:
+        nb_particles_per_nucleus = np.append(nb_particles_per_nucleus, 0)
+
+    analysis_dataframe_temp['ei_ef_sum'] = ei_ef_unique_sur_une_simu
+    analysis_dataframe_temp['nb_particles_per_nucleus'] = nb_particles_per_nucleus
+
+    #################################### Cross-fire dose au noyau ##########################################
+
+    ind_non_cross_fire = data_event_level["ID_Cell"] == data_event_level["Cellule_D_Emission"]
+    ind_cross_fire = ~ind_non_cross_fire  # the complementary array
+
+    if indice_available_diffusion_info == 1:
+        ind_non_cross_fire = ((data_event_level["ID_Cell"] == data_event_level["Cellule_D_Emission"]) &
+                              (data_event_level["indice_if_diffusion"] == 0))
+        ind_cross_fire = ~ind_non_cross_fire
+
+    data_noyau_non_cross_fire = data_event_level[ind_non_cross_fire]
+
+    dose_noyau_non_cross_fire = data_noyau_non_cross_fire["Ei"] - data_noyau_non_cross_fire["Ef"]
+
+    dose_noyau_cross_fire = data_event_level["Ei"] - data_event_level["Ef"]
+
+    dose_noyau_cross_fire = np.setdiff1d(dose_noyau_cross_fire, dose_noyau_non_cross_fire)
+
+    sum_dose_noyau_crossfire = np.sum(dose_noyau_cross_fire)
+    sum_dose_noyau_non_cross_fire = np.sum(dose_noyau_non_cross_fire)
+
+    spheroid_dose = data_run_level[0]["fEdep_sph"] * KEV_IN_J / masse_tum
+    analysis_dataframe_temp['spheroid_dose'] = spheroid_dose
+
+    return sum_dose_noyau_crossfire, sum_dose_noyau_non_cross_fire, analysis_dataframe_temp
+
+
+
+
 def if_internalization_study():
     if labeling_percentage.winfo_exists():
         labeling_percentage.destroy()
