@@ -813,6 +813,62 @@ def calculate_crossfire(dose_noyau_crossfire, dose_noyau_non_crossfire, analysis
 
 
 
+def calculate_survival (n_unique, cell_line, analysis_dataframe_temp, dataframe):
+    """
+        Takes into argument the number of lethal events, the events, the energy, the cell line and the dataframe
+        containing the doses
+        Returns the local survival, the global survival and the dataframe containing these data and the biological dose
+        and the TCP
+    """
+
+    n_unique_tot_sur_une_simu = n_unique
+
+    progress_bar['value'] += round(100 / (nb_complete_simulations - nb_files_with_errors), 2)
+    progress_bar_label['text'] = update_progress_bar_label()
+    window.update_idletasks()
+
+    surviel_append_sur_une_simu = np.exp(-n_unique_tot_sur_une_simu)
+
+    surviel_append_sur_une_simu[np.where(surviel_append_sur_une_simu == 0)] = 10 ** (-299)
+
+    analysis_dataframe_temp['cell_survival_local'] = surviel_append_sur_une_simu
+
+    dose_bio_append_sur_une_simu = \
+        (np.sqrt(ALPHA_PHOTON[cell_line] ** 2 - 4 * BETA_PHOTON[cell_line] * np.log(surviel_append_sur_une_simu)) -
+         ALPHA_PHOTON[cell_line]) \
+        / (2 * BETA_PHOTON[cell_line])
+
+    analysis_dataframe_temp['biological_dose_(gy)'] = dose_bio_append_sur_une_simu
+
+    # Calcul des TCP avec les survies locales
+
+    exp_surviel = np.exp(-np.asarray(surviel_append_sur_une_simu))
+    tcp_une_simu = np.prod(exp_surviel)
+    tcp_test_formula = np.prod(1 - surviel_append_sur_une_simu)
+    analysis_dataframe_temp['tcp_formula_poisson'] = tcp_une_simu
+    analysis_dataframe_temp['tcp_binomial'] = tcp_test_formula
+
+    dosen_append_sur_une_simu_np = analysis_dataframe_temp['dose_nucleus_(gy)']
+
+    survieg_append_sur_une_simu = \
+        np.exp(-n_unique_tot_sur_une_simu - BETAG[type_cell] * (dosen_append_sur_une_simu_np ** 2))
+
+    analysis_dataframe_temp['cell_survival_global'] = survieg_append_sur_une_simu
+
+    # Calcul des TCP avec les survies globales
+
+    exp_survieg = np.exp(-np.asarray(survieg_append_sur_une_simu))
+    tcp_une_simu_global = np.prod(exp_survieg)
+    tcp_test_formula_global = np.prod(1 - survieg_append_sur_une_simu)
+    analysis_dataframe_temp['tcp_formula_poisson_global'] = tcp_une_simu_global
+    analysis_dataframe_temp['tcp_binomial_global'] = tcp_test_formula_global
+
+    dataframe = pd.concat([dataframe, analysis_dataframe_temp], ignore_index=True)
+
+    return dataframe
+
+
+
 
 def if_internalization_study():
     if labeling_percentage.winfo_exists():
