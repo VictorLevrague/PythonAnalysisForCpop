@@ -798,6 +798,21 @@ def calculate_doses(data_run_level, data_event_level, indice_available_diffusion
 
 
 
+def calculate_crossfire(dose_noyau_crossfire, dose_noyau_non_crossfire, analysis_dataframe_temp) :
+    """
+        Takes into argument the dose received by the nucleus of each cell in one simulation caused by crossfire and the
+        dose received by the nucleus that is not caused by crossfire
+        Returns the dose crossfire by each cell in one simulation
+    """
+
+    dose_crossfire = dose_noyau_crossfire / (dose_noyau_crossfire + dose_noyau_non_crossfire)
+
+    analysis_dataframe_temp['cross_fire_nucleus'] = dose_noyau_crossfire / (dose_noyau_crossfire + dose_noyau_non_crossfire)
+
+    return analysis_dataframe_temp
+
+
+
 
 def if_internalization_study():
     if labeling_percentage.winfo_exists():
