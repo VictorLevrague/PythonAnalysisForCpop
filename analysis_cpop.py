@@ -632,7 +632,7 @@ def data_info(particle, root_data_opened, indice_available_diffusion_info, eleme
 
     analysis_dataframe_temp['id_cell'] = np.arange(nb_cellules_reel)
 
-    if particle == 0 :
+    if particle == 0:
         ind_alphaplusplus = root_data_opened["nameParticle"] == 'alpha'
         ind_alphaplus = root_data_opened["nameParticle"] == 'alpha+'
         ind_helium = root_data_opened["nameParticle"] == 'helium'
@@ -641,12 +641,12 @@ def data_info(particle, root_data_opened, indice_available_diffusion_info, eleme
                                             root_data_opened[ind_alphaplus],
                                             root_data_opened[ind_helium])))
 
-    elif particle == 1 :
+    elif particle == 1:
         ind_alphaplusplus = root_data_opened["nameParticle"] == 'alpha'
         data_event_level = root_data_opened[ind_alphaplusplus]
 
 
-    else :
+    else:
         ind_lithium = root_data_opened["nameParticle"] == 'Li7'
         data_event_level = root_data_opened[ind_lithium]
 
@@ -698,6 +698,34 @@ def data_info(particle, root_data_opened, indice_available_diffusion_info, eleme
     data_run_level["ID_Cell"] = perfect_id_cells
 
     return data_run_level, data_event_level, analysis_dataframe_temp
+
+
+def number_of_lethals_events(data_event_level, particle):
+    ei = data_event_level["Ei"]  # Energy in keV
+    ef = data_event_level["Ef"]
+
+    ###Fit from Mario :
+    # dn1_de_continuous_pre_calculated = dn1_de_continuous(type_cell)
+    ###Linear interpolation of alpha tables : #outdated
+    # dn1_de_continuous_pre_calculated = dn1_de_continuous_interp_tables(type_cell)
+    ###Moving average of dn1_dE from alpha tables :
+
+    # particle == 1 : Helium
+    # particle == 2 : Lithium
+
+    dn1_de_continuous_pre_calculated = nanox.dn1_de_continuous_mv_tables(line, particle,"em", method_threshold="Interp")
+    emax = np.max(ei)
+
+    n1 = nanox.number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated, emax)
+
+    n_tab = (n1(ei) - n1(ef))
+
+    n_unique = np.bincount(data_event_level["ID_Cell"].astype(int), weights=n_tab)
+
+    while len(n_unique) < nb_cellules_reel:
+        n_unique = np.append(n_unique, 0)
+
+    return n_unique
 
 
 def if_internalization_study():
