@@ -622,6 +622,83 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
     return elements_to_remove
 
 
+def data_info(particle, root_data_opened, indice_available_diffusion_info, elements_to_remove, real_id_cells, test_file_not_empty):
+
+    analysis_dataframe_temp = pd.DataFrame()
+
+    nb_nucl_traversees_par_la_particule_tab_sur_toutes_simus = []
+    nb_cellules_reel = len(real_id_cells)
+    perfect_id_cells = np.arange(0, nb_cellules_reel)
+
+    analysis_dataframe_temp['id_cell'] = np.arange(nb_cellules_reel)
+
+    if particle == 0 :
+        ind_alphaplusplus = root_data_opened["nameParticle"] == 'alpha'
+        ind_alphaplus = root_data_opened["nameParticle"] == 'alpha+'
+        ind_helium = root_data_opened["nameParticle"] == 'helium'
+
+        data_event_level = (np.concatenate((root_data_opened[ind_alphaplusplus],
+                                            root_data_opened[ind_alphaplus],
+                                            root_data_opened[ind_helium])))
+
+    elif particle == 1 :
+        ind_alphaplusplus = root_data_opened["nameParticle"] == 'alpha'
+        data_event_level = root_data_opened[ind_alphaplusplus]
+
+
+    else :
+        ind_lithium = root_data_opened["nameParticle"] == 'Li7'
+        data_event_level = root_data_opened[ind_lithium]
+
+
+
+    ind_end_of_run = root_data_opened["nameParticle"] == 'EndOfRun'
+
+    data_run_level = root_data_opened[ind_end_of_run]
+
+    ########################## Vérification diffusion aux bonnes énergies ###############################
+
+    if indice_available_diffusion_info == 1:
+
+        unique_data_event_level_event_id = np.unique(data_event_level['eventID'], return_index=True)
+
+        ind_diff_0 = ind_diff_1 = len_unique = 0
+
+        indices_ab = unique_data_event_level_event_id[1]
+
+        unique_data_event_level_ind_diff_corresponding_to_unique_event_id = \
+            np.take(data_event_level['indice_if_diffusion'], indices_ab)
+
+        for i in range(0, len(unique_data_event_level_ind_diff_corresponding_to_unique_event_id)):
+            if unique_data_event_level_ind_diff_corresponding_to_unique_event_id[i] == 0:
+                ind_diff_0 += 1
+                len_unique += 1
+            elif unique_data_event_level_ind_diff_corresponding_to_unique_event_id[i] == 1:
+                ind_diff_1 += 1
+                len_unique += 1
+
+        if verbose == 1:
+            print("% d'event sans diffusion = ", ind_diff_0 / len_unique)
+            print("% d'event avec diffusion = ", ind_diff_1 / len_unique)
+
+    ####################### Modification des ID de CPOP ###################################
+
+    ################ data_event_level #########################################
+    for ind_modif_id in range(0, len(data_event_level)):
+        index_id_cell = np.where(real_id_cells == data_event_level[ind_modif_id]["ID_Cell"])
+        data_event_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
+
+        index_cellule_emission = np.where(real_id_cells == data_event_level[ind_modif_id]["Cellule_D_Emission"])
+        data_event_level[ind_modif_id]["Cellule_D_Emission"] = perfect_id_cells[index_cellule_emission]
+
+    if test_file_not_empty != 0:
+        data_run_level = np.delete(data_run_level, elements_to_remove, 0)
+
+
+    data_run_level["ID_Cell"] = perfect_id_cells
+
+    return data_run_level, data_event_level, analysis_dataframe_temp
+
 
 def if_internalization_study():
     if labeling_percentage.winfo_exists():
