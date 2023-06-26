@@ -1032,7 +1032,7 @@ def create_folder_for_output_analysis_files():
     dossier_root = study_type_folder_name + "/" + available_data_name_file[available_data_combobox.current()] + "/"
     index_of_first_root_output = 0 #Works only if the indexes of root files start at 0
     nb_particle_per_cell = nb_particles_per_cell[number_particles_per_cell_combobox.current()]
-    if study_type ==0:
+    if study_type == 0 or study_type == 2:
         nom_dossier_pour_excel_analyse = f"{available_data_date[available_data_combobox.current()]}" \
                                          f"__{spheroid_compaction}CP_" \
                                          f"{r_sph}um_" \
