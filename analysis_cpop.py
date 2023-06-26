@@ -1262,6 +1262,7 @@ def add_new_buttons_to_graphic_window():
 
     line = cell_line_combobox.get()
 
+    # Internalization
     if study_type == 0:
         # Suivant le choix de l'utilisateur pour les géométries, le dossier où se trouve les fichiers .xml change ("Previous_Data" ou "New_Data" pour les données avec les nouvelles géométries)
         # Le nom de la config change aussi : Pour distinguer entre les trois fichiers pour chaque lignée, pour chaque compaction et rayon de sphéroïde, on ajoute le nom de la lignée à la fin du fichier
@@ -1284,6 +1285,7 @@ def add_new_buttons_to_graphic_window():
             else :
                 nb_cellules_xml = 780000
 
+
         else:
             nom_config = (geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
             # et ceux des ID de cellules supprimés de CPOP à G4,
@@ -1297,11 +1299,49 @@ def add_new_buttons_to_graphic_window():
         cell_compartment = cell_compartment_combobox.get()
         simulation_name = cell_compartment
 
-
+    # Labeling
     elif study_type == 1:
         labeling_percentage_get = labeling_combobox.get()
         study_type_folder_name = "Labeling"
         nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
+
+    # BCNT
+    else:
+        if choice_geom == 1:
+            nom_config = (geom_list[
+                geom_name_combobox.current()]) + "_" + line  # Les fichiers contenant les masses de toutes les cellules,
+            # et ceux des ID de cellules supprimés de CPOP à G4,
+            # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
+            xml_geom = "Cpop_Geom_XML/New_Data/" + nom_config + ".cfg" + ".xml"
+            # print(xml_geom)
+            # print(nom_config)
+            study_type_folder_name = "Internalization/BNCT/New_Data"
+
+            if line == "HSG":
+                nb_cellules_xml = 680000
+
+            elif line == "V79":
+                nb_cellules_xml = 750000
+
+            else:
+                nb_cellules_xml = 780000
+
+        else:
+            nom_config = (
+                geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
+            # et ceux des ID de cellules supprimés de CPOP à G4,
+            # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
+            xml_geom = "Cpop_Geom_XML/Previous_Data/" + nom_config + ".cfg" + ".xml"
+            # print(xml_geom)
+            # print(nom_config)
+            study_type_folder_name = "Internalization/BNCT/Previous_Data"
+            nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
+
+        cell_compartment = cell_compartment_combobox.get()
+        simulation_name = cell_compartment
+
+
+
 
     #nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
     # Nombre de cellules contenues dans le fichier .xml de géométrie créé par CPOP
@@ -1318,7 +1358,7 @@ def add_new_buttons_to_graphic_window():
 
     available_data_date = []
     available_data_name_file = []
-    if study_type == 0:
+    if study_type == 0 or study_type == 2:
         r_sph = geom_list[geom_name_combobox.current()][3:6]
         spheroid_compaction = geom_list[geom_name_combobox.current()][8:10]
 
