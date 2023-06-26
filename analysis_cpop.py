@@ -632,16 +632,7 @@ def data_info(particle, root_data_opened, indice_available_diffusion_info, eleme
 
     analysis_dataframe_temp['id_cell'] = np.arange(nb_cellules_reel)
 
-    if particle == 0:
-        ind_alphaplusplus = root_data_opened["nameParticle"] == 'alpha'
-        ind_alphaplus = root_data_opened["nameParticle"] == 'alpha+'
-        ind_helium = root_data_opened["nameParticle"] == 'helium'
-
-        data_event_level = (np.concatenate((root_data_opened[ind_alphaplusplus],
-                                            root_data_opened[ind_alphaplus],
-                                            root_data_opened[ind_helium])))
-
-    elif particle == 1:
+    if particle == 1:
         ind_alphaplusplus = root_data_opened["nameParticle"] == 'alpha'
         data_event_level = root_data_opened[ind_alphaplusplus]
 
@@ -1098,7 +1089,7 @@ def main():
 
     ##################### Gestion des ID de CPOP ##################################################
 
-    if study_type == 0 :
+    if study_type == 0 or study_type == 2:
         # Si l'utilisateur veut des géométries qui propres à chaque lignée
         if choice_geom == 1:
             txt_id_deleted_cells = f"Cpop_Deleted_Cells_ID_Txt/New_Data/IDCell_{nom_config}.txt"
@@ -1140,13 +1131,17 @@ def main():
     analysis_dataframe = pd.DataFrame()
 
     for simulation_id in indexes_root_files_without_errors_np:
-        root_data_np, indice_available_diffusion_info, indice_available_edep_sph_info = open_root_file(simulation_id)
-        if simulation_id == 0 :
-            elements_to_remove = eliminate_bad_cell_ID(root_data_np, test_file_not_empty, deleted_id_txt, real_id_cells)
 
-        analysis_dataframe = calculations_from_root_file(analysis_dataframe, root_data_np,
-                                                       indice_available_diffusion_info,
-                                                       real_id_cells, test_file_not_empty, deleted_id_txt, type_cell, elements_to_remove)
+        # Labeling and Internalization
+        if study_type != 2 :
+            root_data_np, indice_available_diffusion_info, indice_available_edep_sph_info = open_root_file(simulation_id)
+
+            if simulation_id == 0 :
+                elements_to_remove = eliminate_bad_cell_ID(root_data_np, test_file_not_empty, deleted_id_txt, real_id_cells)
+
+            analysis_dataframe = calculations_from_root_file(analysis_dataframe, root_data_np,
+                                                            indice_available_diffusion_info,
+                                                            real_id_cells, test_file_not_empty, deleted_id_txt, type_cell, elements_to_remove)
 
     if verbose == 1:
         print_geometry_informations()
