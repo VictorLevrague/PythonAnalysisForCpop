@@ -1143,6 +1143,70 @@ def main():
                                                             indice_available_diffusion_info,
                                                             real_id_cells, test_file_not_empty, deleted_id_txt, type_cell, elements_to_remove)
 
+
+        # BNCT
+        else :
+            # Helium
+            particle = 1
+            root_data_np_helium, indice_available_diffusion_info_helium, indice_available_edep_sph_info_helium = open_root_file(
+                simulation_id, particle)
+
+            # Lithium
+            particle = 2
+            root_data_np_lithium, indice_available_diffusion_info_lithium, indice_available_edep_sph_info_lithium = open_root_file(
+                simulation_id, particle)
+
+            if simulation_id == 0:
+                elements_to_remove = eliminate_bad_cell_ID(root_data_np_helium, test_file_not_empty, deleted_id_txt,
+                                                           real_id_cells)
+
+
+
+            particle = 1
+            data_run_level_helium, data_event_level_helium, analyse_cell_ID_helium = data_info(particle, root_data_np_helium, indice_available_diffusion_info_helium,
+                                                          elements_to_remove, real_id_cells, test_file_not_empty)
+
+            particle = 2
+            data_run_level_lithium, data_event_level_lithium, analyse_cell_ID_lithium = data_info(particle, root_data_np_lithium,
+                                                                                        indice_available_diffusion_info_lithium,
+                                                                                        elements_to_remove,
+                                                                                        real_id_cells,
+                                                                                        test_file_not_empty)
+
+
+            ##### Addition des dégâts létaux dues aux helium et lithium #####
+
+            n_unique_helium = number_of_lethals_events(data_event_level_helium, 1)
+
+            n_unique_lithium = number_of_lethals_events(data_event_level_lithium, 2)
+
+            n_unique = n_unique_helium + n_unique_lithium
+
+
+            ##### Calcul de la dose due au crossfire #####
+
+            sum_dose_noyau_crossfire_helium, sum_dose_noyau_non_crossfire_helium, analyse_doses_helium = calculate_doses(data_run_level_helium, data_event_level_helium,
+                                                                                                                  indice_available_diffusion_info_helium, analyse_cell_ID_helium)
+
+            sum_dose_noyau_crossfire_lithium, sum_dose_noyau_non_crossfire_lithium, analyse_doses_lithium = calculate_doses(data_run_level_lithium, data_event_level_lithium,
+                                                                                                                  indice_available_diffusion_info_lithium, analyse_cell_ID_lithium)
+
+            sum_dose_noyau_crossfire = sum_dose_noyau_crossfire_helium + sum_dose_noyau_crossfire_lithium
+            sum_dose_noyau_non_crossfire = sum_dose_noyau_non_crossfire_helium + sum_dose_noyau_non_crossfire_lithium
+
+
+            ##### Addition des doses au noyau, cytoplasme, cell, etc. #####
+            analyse_doses = analyse_doses_helium.add(analyse_doses_lithium, fill_value=0)
+
+            ## Dans les tableaux les id de cell s'additionnent aussi donc on doit les diviser par 2 ##
+            analyse_doses["id_cell"] = analyse_doses["id_cell"] / 2
+            analyse_doses['id_cell'] = analyse_doses['id_cell'].astype(int)
+
+            analyse_crossfire = calculate_crossfire(sum_dose_noyau_crossfire, sum_dose_noyau_non_crossfire, analyse_doses)
+
+            analysis_dataframe = calculate_survival(n_unique, type_cell, analyse_crossfire,analysis_dataframe)
+
+
     if verbose == 1:
         print_geometry_informations()
 
