@@ -268,8 +268,19 @@ def mean_and_std_calculation_dataframe(analysis_dataframe):
 
     return analysis_dataframe
 
-def open_root_file(simulation_id):
-    root_file_name = f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{simulation_id}_t0.root"
+def open_root_file(simulation_id, particle):
+    if particle == 0 :
+        root_file_name = f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{simulation_id}_t0.root"
+        print("nom_fichier_root", nom_fichier_root)
+        print("root_file_name =", root_file_name)
+
+    elif particle == 1 :
+        root_file_name = f"Root/outputMultiCellulaire/{dossier_root}/Helium/{nom_fichier_root}{simulation_id}_t0.root"
+        print("root_file_name_helium =", root_file_name)
+
+    else :
+        root_file_name = f"Root/outputMultiCellulaire/{dossier_root}/Lithium/{nom_fichier_root}{simulation_id}_t0.root"
+        print("root_file_name_lithium =", root_file_name)
 
     if verbose == 1:
         print("Root file name : ", root_file_name)
@@ -1134,7 +1145,8 @@ def main():
 
         # Labeling and Internalization
         if study_type != 2 :
-            root_data_np, indice_available_diffusion_info, indice_available_edep_sph_info = open_root_file(simulation_id)
+            particle = 0
+            root_data_np, indice_available_diffusion_info, indice_available_edep_sph_info = open_root_file(simulation_id, particle)
 
             if simulation_id == 0 :
                 elements_to_remove = eliminate_bad_cell_ID(root_data_np, test_file_not_empty, deleted_id_txt, real_id_cells)
