@@ -273,8 +273,19 @@ def mean_and_std_calculation_dataframe(analysis_dataframe):
 
     return analysis_dataframe
 
-def open_root_file(simulation_id):
-    root_file_name = f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{simulation_id}_t0.root"
+def open_root_file(simulation_id, particle):
+    if particle == 0 :
+        root_file_name = f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{simulation_id}_t0.root"
+        print("nom_fichier_root", nom_fichier_root)
+        print("root_file_name =", root_file_name)
+
+    elif particle == 1 :
+        root_file_name = f"Root/outputMultiCellulaire/{dossier_root}/Helium/{nom_fichier_root}{simulation_id}_t0.root"
+        print("root_file_name_helium =", root_file_name)
+
+    else :
+        root_file_name = f"Root/outputMultiCellulaire/{dossier_root}/Lithium/{nom_fichier_root}{simulation_id}_t0.root"
+        print("root_file_name_lithium =", root_file_name)
 
     if verbose == 1:
         print("Root file name : ", root_file_name)
@@ -652,6 +663,244 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
     return elements_to_remove
 
 
+def data_info(particle, root_data_opened, indice_available_diffusion_info, elements_to_remove, real_id_cells, test_file_not_empty):
+
+    analysis_dataframe_temp = pd.DataFrame()
+
+    nb_nucl_traversees_par_la_particule_tab_sur_toutes_simus = []
+    nb_cellules_reel = len(real_id_cells)
+    perfect_id_cells = np.arange(0, nb_cellules_reel)
+
+    analysis_dataframe_temp['id_cell'] = np.arange(nb_cellules_reel)
+
+    if particle == 1:
+        ind_alphaplusplus = root_data_opened["nameParticle"] == 'alpha'
+        data_event_level = root_data_opened[ind_alphaplusplus]
+
+
+    else:
+        ind_lithium = root_data_opened["nameParticle"] == 'Li7'
+        data_event_level = root_data_opened[ind_lithium]
+
+
+
+    ind_end_of_run = root_data_opened["nameParticle"] == 'EndOfRun'
+
+    data_run_level = root_data_opened[ind_end_of_run]
+
+    ########################## Vérification diffusion aux bonnes énergies ###############################
+
+    if indice_available_diffusion_info == 1:
+
+        unique_data_event_level_event_id = np.unique(data_event_level['eventID'], return_index=True)
+
+        ind_diff_0 = ind_diff_1 = len_unique = 0
+
+        indices_ab = unique_data_event_level_event_id[1]
+
+        unique_data_event_level_ind_diff_corresponding_to_unique_event_id = \
+            np.take(data_event_level['indice_if_diffusion'], indices_ab)
+
+        for i in range(0, len(unique_data_event_level_ind_diff_corresponding_to_unique_event_id)):
+            if unique_data_event_level_ind_diff_corresponding_to_unique_event_id[i] == 0:
+                ind_diff_0 += 1
+                len_unique += 1
+            elif unique_data_event_level_ind_diff_corresponding_to_unique_event_id[i] == 1:
+                ind_diff_1 += 1
+                len_unique += 1
+
+        if verbose == 1:
+            print("% d'event sans diffusion = ", ind_diff_0 / len_unique)
+            print("% d'event avec diffusion = ", ind_diff_1 / len_unique)
+
+    ####################### Modification des ID de CPOP ###################################
+
+    ################ data_event_level #########################################
+    for ind_modif_id in range(0, len(data_event_level)):
+        index_id_cell = np.where(real_id_cells == data_event_level[ind_modif_id]["ID_Cell"])
+        data_event_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
+
+        index_cellule_emission = np.where(real_id_cells == data_event_level[ind_modif_id]["Cellule_D_Emission"])
+        data_event_level[ind_modif_id]["Cellule_D_Emission"] = perfect_id_cells[index_cellule_emission]
+
+    if test_file_not_empty != 0:
+        data_run_level = np.delete(data_run_level, elements_to_remove, 0)
+
+
+    data_run_level["ID_Cell"] = perfect_id_cells
+
+    return data_run_level, data_event_level, analysis_dataframe_temp
+
+
+def number_of_lethals_events(data_event_level, particle):
+    ei = data_event_level["Ei"]  # Energy in keV
+    ef = data_event_level["Ef"]
+
+    ###Fit from Mario :
+    # dn1_de_continuous_pre_calculated = dn1_de_continuous(type_cell)
+    ###Linear interpolation of alpha tables : #outdated
+    # dn1_de_continuous_pre_calculated = dn1_de_continuous_interp_tables(type_cell)
+    ###Moving average of dn1_dE from alpha tables :
+
+    # particle == 1 : Helium
+    # particle == 2 : Lithium
+
+    dn1_de_continuous_pre_calculated = nanox.dn1_de_continuous_mv_tables(line, particle,"em", method_threshold="Interp")
+    emax = np.max(ei)
+
+    n1 = nanox.number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated, emax)
+
+    n_tab = (n1(ei) - n1(ef))
+
+    n_unique = np.bincount(data_event_level["ID_Cell"].astype(int), weights=n_tab)
+
+    while len(n_unique) < nb_cellules_reel:
+        n_unique = np.append(n_unique, 0)
+
+    return n_unique
+
+
+def calculate_doses(data_run_level, data_event_level, indice_available_diffusion_info, analysis_dataframe_temp):
+    """
+            Takes into argument the energy of each event, the event and the indice available diffusion info
+            Returns, for each cell in one simulation, the dose at the nucleus caused by the crossfire, the dose at the
+            nucleus not caused by the crossfire and a dataframe containing the dose at the nucleus, at the cytoplasm and at
+            the cell
+    """
+
+    ei = data_event_level["Ei"]  # Energy in keV
+    ef = data_event_level["Ef"]
+
+    if study_type == 0 or study_type == 2:
+        # Si l'utilisateur veut des géométries qui propres à chaque lignée
+        if choice_geom == 1:
+            txt_cells_masses = f"Cpop_Masse_Txt/New_Data/MassesCell_{nom_config}.txt"
+        # Si l'utilisateur veut des géométries qui ne sont pas propres à chaque lignée
+        else:
+            txt_cells_masses = f"Cpop_Masse_Txt/Previous_Data/MassesCell_{nom_config}.txt"
+
+    elif study_type == 1:
+        txt_cells_masses = f"Cpop_Masse_Txt/MassesCell_{nom_config}.txt"
+
+    masses_cytoplasms, masses_nuclei, masses_cells = geometry_informations.masses_cells_reading(txt_cells_masses)
+    dosen_append_sur_une_simu_np = ((data_run_level["fEdepn"]) * KEV_IN_J / masses_nuclei)
+    dosec_append_sur_une_simu_np = ((data_run_level["fEdepc"]) * KEV_IN_J / masses_cytoplasms)
+
+    analysis_dataframe_temp['dose_nucleus_(gy)'] = dosen_append_sur_une_simu_np
+    analysis_dataframe_temp['dose_cytoplasm_(gy)'] = dosec_append_sur_une_simu_np
+    analysis_dataframe_temp['dose_cell_(gy)'] = dosen_append_sur_une_simu_np + dosec_append_sur_une_simu_np
+
+    nb_particles_per_nucleus = np.bincount((data_event_level["ID_Cell"]).astype(int))
+    ei_ef_unique_sur_une_simu = np.bincount(data_event_level["ID_Cell"].astype(int), weights=ei - ef)
+
+    while len(ei_ef_unique_sur_une_simu) < nb_cellules_reel:
+        ei_ef_unique_sur_une_simu = np.append(ei_ef_unique_sur_une_simu, 0)
+
+    while len(nb_particles_per_nucleus) < nb_cellules_reel:
+        nb_particles_per_nucleus = np.append(nb_particles_per_nucleus, 0)
+
+    analysis_dataframe_temp['ei_ef_sum'] = ei_ef_unique_sur_une_simu
+    analysis_dataframe_temp['nb_particles_per_nucleus'] = nb_particles_per_nucleus
+
+    #################################### Cross-fire dose au noyau ##########################################
+
+    ind_non_cross_fire = data_event_level["ID_Cell"] == data_event_level["Cellule_D_Emission"]
+    ind_cross_fire = ~ind_non_cross_fire  # the complementary array
+
+    if indice_available_diffusion_info == 1:
+        ind_non_cross_fire = ((data_event_level["ID_Cell"] == data_event_level["Cellule_D_Emission"]) &
+                              (data_event_level["indice_if_diffusion"] == 0))
+        ind_cross_fire = ~ind_non_cross_fire
+
+    data_noyau_non_cross_fire = data_event_level[ind_non_cross_fire]
+
+    dose_noyau_non_cross_fire = data_noyau_non_cross_fire["Ei"] - data_noyau_non_cross_fire["Ef"]
+
+    dose_noyau_cross_fire = data_event_level["Ei"] - data_event_level["Ef"]
+
+    dose_noyau_cross_fire = np.setdiff1d(dose_noyau_cross_fire, dose_noyau_non_cross_fire)
+
+    sum_dose_noyau_crossfire = np.sum(dose_noyau_cross_fire)
+    sum_dose_noyau_non_cross_fire = np.sum(dose_noyau_non_cross_fire)
+
+    spheroid_dose = data_run_level[0]["fEdep_sph"] * KEV_IN_J / masse_tum
+    analysis_dataframe_temp['spheroid_dose'] = spheroid_dose
+
+    return sum_dose_noyau_crossfire, sum_dose_noyau_non_cross_fire, analysis_dataframe_temp
+
+
+
+def calculate_crossfire(dose_noyau_crossfire, dose_noyau_non_crossfire, analysis_dataframe_temp) :
+    """
+        Takes into argument the dose received by the nucleus of each cell in one simulation caused by crossfire and the
+        dose received by the nucleus that is not caused by crossfire
+        Returns the dose crossfire by each cell in one simulation
+    """
+
+    dose_crossfire = dose_noyau_crossfire / (dose_noyau_crossfire + dose_noyau_non_crossfire)
+
+    analysis_dataframe_temp['cross_fire_nucleus'] = dose_noyau_crossfire / (dose_noyau_crossfire + dose_noyau_non_crossfire)
+
+    return analysis_dataframe_temp
+
+
+
+def calculate_survival (n_unique, cell_line, analysis_dataframe_temp, dataframe):
+    """
+        Takes into argument the number of lethal events, the events, the energy, the cell line and the dataframe
+        containing the doses
+        Returns the local survival, the global survival and the dataframe containing these data and the biological dose
+        and the TCP
+    """
+
+    n_unique_tot_sur_une_simu = n_unique
+
+    progress_bar['value'] += round(100 / (nb_complete_simulations - nb_files_with_errors), 2)
+    progress_bar_label['text'] = update_progress_bar_label()
+    window.update_idletasks()
+
+    surviel_append_sur_une_simu = np.exp(-n_unique_tot_sur_une_simu)
+
+    surviel_append_sur_une_simu[np.where(surviel_append_sur_une_simu == 0)] = 10 ** (-299)
+
+    analysis_dataframe_temp['cell_survival_local'] = surviel_append_sur_une_simu
+
+    dose_bio_append_sur_une_simu = \
+        (np.sqrt(ALPHA_PHOTON[cell_line] ** 2 - 4 * BETA_PHOTON[cell_line] * np.log(surviel_append_sur_une_simu)) -
+         ALPHA_PHOTON[cell_line]) \
+        / (2 * BETA_PHOTON[cell_line])
+
+    analysis_dataframe_temp['biological_dose_(gy)'] = dose_bio_append_sur_une_simu
+
+    # Calcul des TCP avec les survies locales
+
+    exp_surviel = np.exp(-np.asarray(surviel_append_sur_une_simu))
+    tcp_une_simu = np.prod(exp_surviel)
+    tcp_test_formula = np.prod(1 - surviel_append_sur_une_simu)
+    analysis_dataframe_temp['tcp_formula_poisson'] = tcp_une_simu
+    analysis_dataframe_temp['tcp_binomial'] = tcp_test_formula
+
+    dosen_append_sur_une_simu_np = analysis_dataframe_temp['dose_nucleus_(gy)']
+
+    survieg_append_sur_une_simu = \
+        np.exp(-n_unique_tot_sur_une_simu - BETAG[type_cell] * (dosen_append_sur_une_simu_np ** 2))
+
+    analysis_dataframe_temp['cell_survival_global'] = survieg_append_sur_une_simu
+
+    # Calcul des TCP avec les survies globales
+
+    exp_survieg = np.exp(-np.asarray(survieg_append_sur_une_simu))
+    tcp_une_simu_global = np.prod(exp_survieg)
+    tcp_test_formula_global = np.prod(1 - survieg_append_sur_une_simu)
+    analysis_dataframe_temp['tcp_formula_poisson_global'] = tcp_une_simu_global
+    analysis_dataframe_temp['tcp_binomial_global'] = tcp_test_formula_global
+
+    dataframe = pd.concat([dataframe, analysis_dataframe_temp], ignore_index=True)
+
+    return dataframe
+
+
+
 
 def if_internalization_study():
     if labeling_percentage.winfo_exists():
@@ -733,8 +982,11 @@ def graphic_window():
                            variable=study_type_radiovalue,value=0, command=if_internalization_study)
     study_type_radiovalue_1=tkinter.Radiobutton(window, text="Labeling", variable=study_type_radiovalue,value=1,
                            command=if_labeling_study)
+    study_type_radiovalue_2 = tkinter.Radiobutton(window, text="BNCT", variable=study_type_radiovalue, value=2,
+                                                  command=if_internalization_study)
     study_type_radiovalue_0.place(x=390,y=50)
-    study_type_radiovalue_1.place(x=590, y=50)
+    study_type_radiovalue_1.place(x=520, y=50)
+    study_type_radiovalue_2.place(x=620, y=50)
 
     cell_compartment_label = tkinter.Label(window, text="Intra cellular distribution name :", fg='blue')
     cell_compartment_label.place(x=100, y=100)
@@ -821,7 +1073,7 @@ def create_folder_for_output_analysis_files():
     dossier_root = study_type_folder_name + "/" + available_data_name_file[available_data_combobox.current()] + "/"
     index_of_first_root_output = 0 #Works only if the indexes of root files start at 0
     nb_particle_per_cell = nb_particles_per_cell[number_particles_per_cell_combobox.current()]
-    if study_type ==0:
+    if study_type == 0 or study_type == 2:
         nom_dossier_pour_excel_analyse = f"{available_data_date[available_data_combobox.current()]}" \
                                          f"__{spheroid_compaction}CP_" \
                                          f"{r_sph}um_" \
@@ -878,7 +1130,7 @@ def main():
 
     ##################### Gestion des ID de CPOP ##################################################
 
-    if study_type == 0 :
+    if study_type == 0 or study_type == 2:
         # Si l'utilisateur veut des géométries qui propres à chaque lignée
         if choice_geom == 1:
             txt_id_deleted_cells = f"Cpop_Deleted_Cells_ID_Txt/New_Data/IDCell_{nom_config}.txt"
@@ -920,13 +1172,82 @@ def main():
     analysis_dataframe = pd.DataFrame()
 
     for simulation_id in indexes_root_files_without_errors_np:
-        root_data_np, indice_available_diffusion_info, indice_available_edep_sph_info = open_root_file(simulation_id)
-        if simulation_id == 0 :
-            elements_to_remove = eliminate_bad_cell_ID(root_data_np, test_file_not_empty, deleted_id_txt, real_id_cells)
 
-        analysis_dataframe = calculations_from_root_file(analysis_dataframe, root_data_np,
-                                                       indice_available_diffusion_info,
-                                                       real_id_cells, test_file_not_empty, deleted_id_txt, type_cell, elements_to_remove)
+        # Labeling and Internalization
+        if study_type != 2 :
+            particle = 0
+            root_data_np, indice_available_diffusion_info, indice_available_edep_sph_info = open_root_file(simulation_id, particle)
+
+            if simulation_id == 0 :
+                elements_to_remove = eliminate_bad_cell_ID(root_data_np, test_file_not_empty, deleted_id_txt, real_id_cells)
+
+            analysis_dataframe = calculations_from_root_file(analysis_dataframe, root_data_np,
+                                                            indice_available_diffusion_info,
+                                                            real_id_cells, test_file_not_empty, deleted_id_txt, type_cell, elements_to_remove)
+
+
+        # BNCT
+        else :
+            # Helium
+            particle = 1
+            root_data_np_helium, indice_available_diffusion_info_helium, indice_available_edep_sph_info_helium = open_root_file(
+                simulation_id, particle)
+
+            # Lithium
+            particle = 2
+            root_data_np_lithium, indice_available_diffusion_info_lithium, indice_available_edep_sph_info_lithium = open_root_file(
+                simulation_id, particle)
+
+            if simulation_id == 0:
+                elements_to_remove = eliminate_bad_cell_ID(root_data_np_helium, test_file_not_empty, deleted_id_txt,
+                                                           real_id_cells)
+
+
+
+            particle = 1
+            data_run_level_helium, data_event_level_helium, analyse_cell_ID_helium = data_info(particle, root_data_np_helium, indice_available_diffusion_info_helium,
+                                                          elements_to_remove, real_id_cells, test_file_not_empty)
+
+            particle = 2
+            data_run_level_lithium, data_event_level_lithium, analyse_cell_ID_lithium = data_info(particle, root_data_np_lithium,
+                                                                                        indice_available_diffusion_info_lithium,
+                                                                                        elements_to_remove,
+                                                                                        real_id_cells,
+                                                                                        test_file_not_empty)
+
+
+            ##### Addition des dégâts létaux dues aux helium et lithium #####
+
+            n_unique_helium = number_of_lethals_events(data_event_level_helium, 1)
+
+            n_unique_lithium = number_of_lethals_events(data_event_level_lithium, 2)
+
+            n_unique = n_unique_helium + n_unique_lithium
+
+
+            ##### Calcul de la dose due au crossfire #####
+
+            sum_dose_noyau_crossfire_helium, sum_dose_noyau_non_crossfire_helium, analyse_doses_helium = calculate_doses(data_run_level_helium, data_event_level_helium,
+                                                                                                                  indice_available_diffusion_info_helium, analyse_cell_ID_helium)
+
+            sum_dose_noyau_crossfire_lithium, sum_dose_noyau_non_crossfire_lithium, analyse_doses_lithium = calculate_doses(data_run_level_lithium, data_event_level_lithium,
+                                                                                                                  indice_available_diffusion_info_lithium, analyse_cell_ID_lithium)
+
+            sum_dose_noyau_crossfire = sum_dose_noyau_crossfire_helium + sum_dose_noyau_crossfire_lithium
+            sum_dose_noyau_non_crossfire = sum_dose_noyau_non_crossfire_helium + sum_dose_noyau_non_crossfire_lithium
+
+
+            ##### Addition des doses au noyau, cytoplasme, cell, etc. #####
+            analyse_doses = analyse_doses_helium.add(analyse_doses_lithium, fill_value=0)
+
+            ## Dans les tableaux les id de cell s'additionnent aussi donc on doit les diviser par 2 ##
+            analyse_doses["id_cell"] = analyse_doses["id_cell"] / 2
+            analyse_doses['id_cell'] = analyse_doses['id_cell'].astype(int)
+
+            analyse_crossfire = calculate_crossfire(sum_dose_noyau_crossfire, sum_dose_noyau_non_crossfire, analyse_doses)
+
+            analysis_dataframe = calculate_survival(n_unique, type_cell, analyse_crossfire,analysis_dataframe)
+
 
     if verbose == 1:
         print_geometry_informations()
@@ -983,6 +1304,7 @@ def add_new_buttons_to_graphic_window():
 
     line = cell_line_combobox.get()
 
+    # Internalization
     if study_type == 0:
         # Suivant le choix de l'utilisateur pour les géométries, le dossier où se trouve les fichiers .xml change ("Previous_Data" ou "New_Data" pour les données avec les nouvelles géométries)
         # Le nom de la config change aussi : Pour distinguer entre les trois fichiers pour chaque lignée, pour chaque compaction et rayon de sphéroïde, on ajoute le nom de la lignée à la fin du fichier
@@ -1005,6 +1327,7 @@ def add_new_buttons_to_graphic_window():
             else :
                 nb_cellules_xml = 780000
 
+
         else:
             nom_config = (geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
             # et ceux des ID de cellules supprimés de CPOP à G4,
@@ -1018,11 +1341,49 @@ def add_new_buttons_to_graphic_window():
         cell_compartment = cell_compartment_combobox.get()
         simulation_name = cell_compartment
 
-
+    # Labeling
     elif study_type == 1:
         labeling_percentage_get = labeling_combobox.get()
         study_type_folder_name = "Labeling"
         nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
+
+    # BCNT
+    else:
+        if choice_geom == 1:
+            nom_config = (geom_list[
+                geom_name_combobox.current()]) + "_" + line  # Les fichiers contenant les masses de toutes les cellules,
+            # et ceux des ID de cellules supprimés de CPOP à G4,
+            # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
+            xml_geom = "Cpop_Geom_XML/New_Data/" + nom_config + ".cfg" + ".xml"
+            # print(xml_geom)
+            # print(nom_config)
+            study_type_folder_name = "Internalization/BNCT/New_Data"
+
+            if line == "HSG":
+                nb_cellules_xml = 680000
+
+            elif line == "V79":
+                nb_cellules_xml = 750000
+
+            else:
+                nb_cellules_xml = 780000
+
+        else:
+            nom_config = (
+                geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
+            # et ceux des ID de cellules supprimés de CPOP à G4,
+            # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
+            xml_geom = "Cpop_Geom_XML/Previous_Data/" + nom_config + ".cfg" + ".xml"
+            # print(xml_geom)
+            # print(nom_config)
+            study_type_folder_name = "Internalization/BNCT/Previous_Data"
+            nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
+
+        cell_compartment = cell_compartment_combobox.get()
+        simulation_name = cell_compartment
+
+
+
 
     #nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
     # Nombre de cellules contenues dans le fichier .xml de géométrie créé par CPOP
@@ -1039,7 +1400,7 @@ def add_new_buttons_to_graphic_window():
 
     available_data_date = []
     available_data_name_file = []
-    if study_type == 0:
+    if study_type == 0 or study_type == 2:
         r_sph = geom_list[geom_name_combobox.current()][3:6]
         spheroid_compaction = geom_list[geom_name_combobox.current()][8:10]
 
