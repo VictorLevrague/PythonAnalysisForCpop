@@ -257,7 +257,12 @@ def mean_and_std_calculation_dataframe(analysis_dataframe):
         ['tcp_formula_poisson_global'].std()
     analysis_dataframe['tcp_formula_poisson_global'] = analysis_dataframe.groupby(['id_cell'])['tcp_formula_poisson_global'].mean()
 
-    analysis_dataframe['biological_dose_(gy)'] = analysis_dataframe.groupby(['id_cell'])['biological_dose_(gy)'].mean()
+    analysis_dataframe['biological_dose_furusawa_(gy)'] = analysis_dataframe.groupby(['id_cell'])['biological_dose_furusawa_(gy)'].mean()
+    analysis_dataframe['biological_dose_aoki_nakano_hsg_(gy)'] = analysis_dataframe.groupby(['id_cell'])['biological_dose_aoki_nakano_hsg_(gy)'].mean()
+    analysis_dataframe_without_nan_rbeµ_furusawa2000 = analysis_dataframe[analysis_dataframe['rbeµ_furusawa2000'] != float("nan")]
+    analysis_dataframe['rbeµ_furusawa2000'] = analysis_dataframe_without_nan_rbeµ_furusawa2000.groupby(['id_cell'])['rbeµ_furusawa2000'].mean()
+    analysis_dataframe_without_nan_rbeµ_aoki_nakano2014 = analysis_dataframe[analysis_dataframe['rbeµ_hsg_aoki_nakano2014'] != float("nan")]
+    analysis_dataframe['rbeµ_hsg_aoki_nakano2014'] = analysis_dataframe_without_nan_rbeµ_aoki_nakano2014.groupby(['id_cell'])['rbeµ_hsg_aoki_nakano2014'].mean()
     analysis_dataframe['edep_moy_per_nucleus_cross_(kev)'] = edep_moy_per_nucleus_cross.mean()
 
     analysis_dataframe.drop('ei_ef_sum', inplace=True, axis=1)
@@ -554,11 +559,36 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     analysis_dataframe_temp['cell_survival_local'] = surviel_append_sur_une_simu
 
-    dose_bio_append_sur_une_simu = \
+    dose_bio_append_sur_une_simu_furusawa = \
        (np.sqrt(ALPHA_PHOTON[cell_line] ** 2 - 4 * BETA_PHOTON[cell_line] * np.log(surviel_append_sur_une_simu)) - ALPHA_PHOTON[cell_line]) \
             / (2 * BETA_PHOTON[cell_line])
 
-    analysis_dataframe_temp['biological_dose_(gy)'] = dose_bio_append_sur_une_simu
+    alpha_ref_hsg_aoki_nakano = 0.259
+    beta_ref_hsg_aoki_nakano = 0.040
+
+
+    dose_bio_append_sur_une_simu_furusawa = \
+        (np.sqrt(ALPHA_PHOTON[cell_line] ** 2 - 4 * BETA_PHOTON[cell_line] * np.log(surviel_append_sur_une_simu)) -
+         ALPHA_PHOTON[cell_line]) \
+        / (2 * BETA_PHOTON[cell_line])
+
+    dose_bio_append_sur_une_simu_aoki_nakano_hsg = \
+        (np.sqrt(alpha_ref_hsg_aoki_nakano ** 2 - 4 * beta_ref_hsg_aoki_nakano * np.log(surviel_append_sur_une_simu)) -
+         alpha_ref_hsg_aoki_nakano) \
+        / (2 * beta_ref_hsg_aoki_nakano)
+
+    analysis_dataframe_temp['biological_dose_furusawa_(gy)'] = dose_bio_append_sur_une_simu_furusawa
+    analysis_dataframe_temp['biological_dose_aoki_nakano_hsg_(gy)'] = dose_bio_append_sur_une_simu_aoki_nakano_hsg
+    analysis_dataframe_temp['rbeµ_furusawa2000'] = dose_bio_append_sur_une_simu_furusawa / dosen_append_sur_une_simu_np
+    analysis_dataframe_temp['rbeµ_hsg_aoki_nakano2014'] = dose_bio_append_sur_une_simu_aoki_nakano_hsg / dosen_append_sur_une_simu_np
+    # print(analysis_dataframe_temp['rbeµ'])
+    #
+    # print("survie l [0] = ", surviel_append_sur_une_simu[1])
+    # print("alpha_ref = ", ALPHA_PHOTON[cell_line])
+    # print("beta_ref = ", BETA_PHOTON[cell_line])
+    # print("dose bio [0] = ", dose_bio_append_sur_une_simu[1])
+    # print("dose nucl [0] = ", dosen_append_sur_une_simu_np[1])
+
 
     # Calcul des TCP avec les survies locales
 
