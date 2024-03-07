@@ -63,7 +63,7 @@ start_time = time.perf_counter()
 np.set_printoptions(threshold=sys.maxsize)
 #np.set_printoptions(threshold = False)
 
-global labeling_percentage_entry, cell_compartment_label, cell_compartment_combobox, verbose
+global labeling_percentage_entry, cell_compartment_label, cell_compartment_combobox, radionuclide_distribution_combobox, verbose
 
 def column(matrix, i):
     return [row[i] for row in matrix]
@@ -231,12 +231,20 @@ def mean_and_std_calculation_dataframe(analysis_dataframe):
         ['tcp_binomial_global'].std()
     analysis_dataframe['tcp_binomial_global'] = analysis_dataframe.groupby(['id_cell'])['tcp_binomial_global'].mean()
 
+    analysis_dataframe['tcp_binomial_total_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['tcp_binomial_total'].std()
+    analysis_dataframe['tcp_binomial_total'] = analysis_dataframe.groupby(['id_cell'])['tcp_binomial_total'].mean()
+
     analysis_dataframe['cell_survival_local_std'] = analysis_dataframe.groupby(['id_cell'])\
                                                                         ['cell_survival_local'].std()
     analysis_dataframe['cell_survival_local'] = analysis_dataframe.groupby(['id_cell'])['cell_survival_local'].mean()
     analysis_dataframe['cell_survival_global_std'] = analysis_dataframe.groupby(['id_cell'])\
                                                                         ['cell_survival_global'].std()
     analysis_dataframe['cell_survival_global'] = analysis_dataframe.groupby(['id_cell'])['cell_survival_global'].mean()
+    analysis_dataframe['cell_survival_total'] = analysis_dataframe.groupby(['id_cell'])['cell_survival_total'].mean()
+    analysis_dataframe['cell_survival_total_std'] = analysis_dataframe.groupby(['id_cell'])\
+                                                                        ['cell_survival_total'].std()
+
     analysis_dataframe['dose_nucleus_std'] = analysis_dataframe.groupby(['id_cell']) \
                                                                         ['dose_nucleus_(gy)'].std()
     analysis_dataframe['dose_nucleus_(gy)'] = analysis_dataframe.groupby(['id_cell'])['dose_nucleus_(gy)'].mean()
@@ -257,16 +265,53 @@ def mean_and_std_calculation_dataframe(analysis_dataframe):
         ['tcp_formula_poisson_global'].std()
     analysis_dataframe['tcp_formula_poisson_global'] = analysis_dataframe.groupby(['id_cell'])['tcp_formula_poisson_global'].mean()
 
+    analysis_dataframe['tcp_formula_poisson_total_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['tcp_formula_poisson_total'].std()
+    analysis_dataframe['tcp_formula_poisson_total'] = analysis_dataframe.groupby(['id_cell'])['tcp_formula_poisson_total'].mean()
+
+    analysis_dataframe['biological_dose_furusawa_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['biological_dose_furusawa_(gy)'].std()
     analysis_dataframe['biological_dose_furusawa_(gy)'] = analysis_dataframe.groupby(['id_cell'])['biological_dose_furusawa_(gy)'].mean()
+
+    analysis_dataframe['biological_dose_aoki_nakano_hsg_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['biological_dose_aoki_nakano_hsg_(gy)'].std()
     analysis_dataframe['biological_dose_aoki_nakano_hsg_(gy)'] = analysis_dataframe.groupby(['id_cell'])['biological_dose_aoki_nakano_hsg_(gy)'].mean()
+
     analysis_dataframe_without_nan_rbeµ_furusawa2000 = analysis_dataframe[analysis_dataframe['rbeµ_furusawa2000'] != float("nan")]
+
+    analysis_dataframe['rbeµ_furusawa2000_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['rbeµ_furusawa2000'].std()
     analysis_dataframe['rbeµ_furusawa2000'] = analysis_dataframe_without_nan_rbeµ_furusawa2000.groupby(['id_cell'])['rbeµ_furusawa2000'].mean()
+
+    analysis_dataframe['rbeµ_furusawa2000_cell_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['rbeµ_furusawa2000_cell'].std()
+    analysis_dataframe['rbeµ_furusawa2000_cell'] = analysis_dataframe_without_nan_rbeµ_furusawa2000.groupby(['id_cell'])['rbeµ_furusawa2000_cell'].mean()
+
     analysis_dataframe_without_nan_rbeµ_aoki_nakano2014 = analysis_dataframe[analysis_dataframe['rbeµ_hsg_aoki_nakano2014'] != float("nan")]
+
+    analysis_dataframe['rbeµ_hsg_aoki_nakano2014_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['rbeµ_hsg_aoki_nakano2014'].std()
     analysis_dataframe['rbeµ_hsg_aoki_nakano2014'] = analysis_dataframe_without_nan_rbeµ_aoki_nakano2014.groupby(['id_cell'])['rbeµ_hsg_aoki_nakano2014'].mean()
+
+    analysis_dataframe['rbeµ_hsg_aoki_nakano2014_cell_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['rbeµ_hsg_aoki_nakano2014_cell'].std()
+    analysis_dataframe['rbeµ_hsg_aoki_nakano2014_cell'] = analysis_dataframe_without_nan_rbeµ_aoki_nakano2014.groupby(['id_cell'])['rbeµ_hsg_aoki_nakano2014_cell'].mean()
+
+    df_with_only_cell_zero = analysis_dataframe[analysis_dataframe["id_cell"] == 0]
+
+    analysis_dataframe['rbe_macro_furusawa_std'] = df_with_only_cell_zero['rbe_macro_furusawa'].std()
+    analysis_dataframe['rbe_macro_furusawa'] = df_with_only_cell_zero['rbe_macro_furusawa'].mean()
+
+    analysis_dataframe['rbe_macro_aoki_nakano_std'] = df_with_only_cell_zero['rbe_macro_aoki_nakano'].std()
+    analysis_dataframe['rbe_macro_aoki_nakano'] = df_with_only_cell_zero['rbe_macro_aoki_nakano'].mean()
+
+    analysis_dataframe['nb_particles_per_nucleus_std'] = analysis_dataframe.groupby(['id_cell'])['nb_particles_per_nucleus'].std()
+    analysis_dataframe['nb_particles_per_nucleus'] = analysis_dataframe.groupby(['id_cell'])['nb_particles_per_nucleus'].mean()
+
     analysis_dataframe['edep_moy_per_nucleus_cross_(kev)'] = edep_moy_per_nucleus_cross.mean()
 
-    analysis_dataframe.drop('ei_ef_sum', inplace=True, axis=1)
-    analysis_dataframe.drop('nb_particles_per_nucleus', inplace=True, axis=1)
+    # analysis_dataframe.drop('ei_ef_sum', inplace=True, axis=1)
+    # analysis_dataframe.drop('nb_particles_per_nucleus', inplace=True, axis=1)
 
     analysis_dataframe.drop_duplicates(subset="id_cell", inplace=True)
     # analysis_dataframe.drop_duplicates(subset="simulation_id", inplace=True)
@@ -340,7 +385,8 @@ def open_root_file(simulation_id, particle):
     return root_data_opened, indice_available_diffusion_info, indice_available_edep_sph_info
 
 def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_available_diffusion_info,
-                                real_id_cells, test_file_not_empty, deleted_id_txt, cell_line, elements_to_remove):
+                                real_id_cells, test_file_not_empty, deleted_id_txt, cell_line, elements_to_remove,
+                                indice_available_edep_sph_info):
     """
     Opens root file corresponding to a MC simulation and calculates quantities like cell survivals
     Returns Check
@@ -404,36 +450,6 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
         index_cellule_emission = np.where(real_id_cells == data_event_level[ind_modif_id]["Cellule_D_Emission"])
         data_event_level[ind_modif_id]["Cellule_D_Emission"] = perfect_id_cells[index_cellule_emission]
 
-    ################ data_run_level ######################################
-
-    # if test_file_not_empty != 0:
-    #     elements_to_remove = []
-    #     for ind_modif_id in range(0, len(data_run_level)):
-    #         if (data_run_level[ind_modif_id]["ID_Cell"]) in deleted_id_txt:
-    #             elements_to_remove.append(ind_modif_id)
-    #     data_run_level = np.delete(data_run_level, elements_to_remove, 0)
-
-    # start_time = time.time()
-    # for ind_modif_id in range(0, len(data_run_level)):
-    #
-    #     #print("ui")
-    #     index_id_cell = np.where(real_id_cells == data_run_level[ind_modif_id]["ID_Cell"])
-    #     print("ok")
-    #     print(np.shape(data_run_level))
-    #     #
-    #     print(np.shape(perfect_id_cells))
-    #     print(np.size(data_run_level))
-    #     print(np.size(perfect_id_cells))
-    #     print(index_id_cell)
-    #
-    #     data_run_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
-    #     #print("oh")
-    #
-    # #print(data_run_level)
-    # temps2 = time.time() - start_time
-    #
-    # print("c'est fini", temps2)
-
     if test_file_not_empty != 0:
         data_run_level = np.delete(data_run_level, elements_to_remove, 0)
 
@@ -448,11 +464,14 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     ###Linear interpolation of alpha tables : #outdated
     #dn1_de_continuous_pre_calculated = dn1_de_continuous_interp_tables(type_cell)
     ###Moving average of dn1_dE from alpha tables :
-    dn1_de_continuous_pre_calculated = nanox.dn1_de_continuous_mv_tables(line, "em", method_threshold="Interp")
+    # dn1_de_continuous_pre_calculated = nanox.dn1_de_continuous_mv_tables(line, "em", method_threshold="Interp")
+    dn1_de_continuous_pre_calculated_with_global_correction = nanox.dn1_de_continuous_mv_tables_global_events_correction(line, "em", method_threshold="Interp")
+    print("line: ", line)
     emax = np.max(ei)
-    n1 = nanox.number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated, emax)
+    n1 = nanox.number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated_with_global_correction, emax)
 
     n_tab = (n1(ei) - n1(ef))
+    n_sub_tab = nanox.z_restricted_func(ei, ef, cell_line_combobox.get())
 
     if study_type == 0:
         # Si l'utilisateur veut des géométries qui propres à chaque lignée
@@ -465,7 +484,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
             # print("Masse Cells", txt_cells_masses)
 
     elif study_type == 1:
-        txt_cells_masses=f"Cpop_Masse_Txt/MassesCell_{nom_config}.txt"
+        txt_cells_masses=f"Cpop_Masse_Txt/Previous_Data/MassesCell_{nom_config}.txt"
 
 
     masses_cytoplasms, masses_nuclei, masses_cells = geometry_informations.masses_cells_reading(txt_cells_masses)
@@ -550,6 +569,12 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     n_unique_tot_sur_une_simu = n_unique
 
+    n_sub_unique = np.bincount(data_event_level["ID_Cell"].astype(int), weights=n_sub_tab)
+    while len(n_sub_unique) < nb_cellules_reel:
+        n_sub_unique = np.append(n_sub_unique, 0)
+
+    n_sub_unique_tot_sur_une_simu = n_sub_unique
+
     progress_bar['value'] += round(100 / (nb_complete_simulations - nb_files_with_errors), 2)
     progress_bar_label['text'] = update_progress_bar_label()
     window.update_idletasks()
@@ -570,28 +595,59 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     analysis_dataframe_temp['cell_survival_local'] = surviel_append_sur_une_simu
 
-    dose_bio_append_sur_une_simu_furusawa = \
-       (np.sqrt(ALPHA_PHOTON[cell_line] ** 2 - 4 * BETA_PHOTON[cell_line] * np.log(surviel_append_sur_une_simu)) - ALPHA_PHOTON[cell_line]) \
-            / (2 * BETA_PHOTON[cell_line])
+    print(analysis_dataframe_temp['cell_survival_local'])
+
+    survieg_append_sur_une_simu = np.exp(-n_sub_unique_tot_sur_une_simu)
+    analysis_dataframe_temp['cell_survival_global'] = survieg_append_sur_une_simu
+
+    print(analysis_dataframe_temp['cell_survival_global'])
+
+    survietot_append_sur_une_simu = surviel_append_sur_une_simu * survieg_append_sur_une_simu
+    analysis_dataframe_temp['cell_survival_total'] = survietot_append_sur_une_simu
+
 
     alpha_ref_hsg_aoki_nakano = 0.259
     beta_ref_hsg_aoki_nakano = 0.040
 
 
     dose_bio_append_sur_une_simu_furusawa = \
-        (np.sqrt(ALPHA_PHOTON[cell_line] ** 2 - 4 * BETA_PHOTON[cell_line] * np.log(surviel_append_sur_une_simu)) -
+        (np.sqrt(ALPHA_PHOTON[cell_line] ** 2 - 4 * BETA_PHOTON[cell_line] * np.log(survietot_append_sur_une_simu)) -
+         ALPHA_PHOTON[cell_line]) \
+        / (2 * BETA_PHOTON[cell_line])
+
+    dose_bio_macro_furusawa = \
+        (np.sqrt(ALPHA_PHOTON[cell_line] ** 2 - 4 * BETA_PHOTON[cell_line] * np.log(np.mean(survietot_append_sur_une_simu))) -
          ALPHA_PHOTON[cell_line]) \
         / (2 * BETA_PHOTON[cell_line])
 
     dose_bio_append_sur_une_simu_aoki_nakano_hsg = \
-        (np.sqrt(alpha_ref_hsg_aoki_nakano ** 2 - 4 * beta_ref_hsg_aoki_nakano * np.log(surviel_append_sur_une_simu)) -
+        (np.sqrt(alpha_ref_hsg_aoki_nakano ** 2 - 4 * beta_ref_hsg_aoki_nakano * np.log(survietot_append_sur_une_simu)) -
          alpha_ref_hsg_aoki_nakano) \
         / (2 * beta_ref_hsg_aoki_nakano)
+
+    dose_bio_macro_aoki_nakano = \
+        (np.sqrt(alpha_ref_hsg_aoki_nakano ** 2 - 4 * beta_ref_hsg_aoki_nakano * np.log(np.mean(survietot_append_sur_une_simu))) -
+         alpha_ref_hsg_aoki_nakano) \
+        / (2 * beta_ref_hsg_aoki_nakano)
+
+    spheroid_dose = data_run_level[0]["fEdep_sph"] * KEV_IN_J / masse_tum
+    # print("Spheroid dose: ", spheroid_dose)
+    analysis_dataframe_temp['spheroid_dose'] = spheroid_dose
 
     analysis_dataframe_temp['biological_dose_furusawa_(gy)'] = dose_bio_append_sur_une_simu_furusawa
     analysis_dataframe_temp['biological_dose_aoki_nakano_hsg_(gy)'] = dose_bio_append_sur_une_simu_aoki_nakano_hsg
     analysis_dataframe_temp['rbeµ_furusawa2000'] = dose_bio_append_sur_une_simu_furusawa / dosen_append_sur_une_simu_np
     analysis_dataframe_temp['rbeµ_hsg_aoki_nakano2014'] = dose_bio_append_sur_une_simu_aoki_nakano_hsg / dosen_append_sur_une_simu_np
+    analysis_dataframe_temp['rbeµ_furusawa2000_cell'] = dose_bio_append_sur_une_simu_furusawa / (dosen_append_sur_une_simu_np + dosec_append_sur_une_simu_np)
+    analysis_dataframe_temp['rbeµ_hsg_aoki_nakano2014_cell'] = dose_bio_append_sur_une_simu_aoki_nakano_hsg / (dosen_append_sur_une_simu_np + dosec_append_sur_une_simu_np)
+    if indice_available_edep_sph_info:
+        # print("indice_available_edep_sph_info: ", indice_available_edep_sph_info)
+        analysis_dataframe_temp['rbe_macro_furusawa'] = (dose_bio_macro_furusawa /
+                    analysis_dataframe_temp['spheroid_dose'])
+        # print("rbe_macro furu: ", analysis_dataframe_temp['rbe_macro_furusawa'])
+        analysis_dataframe_temp['rbe_macro_aoki_nakano'] = (dose_bio_macro_aoki_nakano /
+                    analysis_dataframe_temp['spheroid_dose'])
+        # print("rbe_macro aoki: ", analysis_dataframe_temp['rbe_macro_aoki_nakano'])
     # print(analysis_dataframe_temp['rbeµ'])
     #
     # print("survie l [0] = ", surviel_append_sur_une_simu[1])
@@ -609,11 +665,6 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     analysis_dataframe_temp['tcp_formula_poisson'] = tcp_une_simu
     analysis_dataframe_temp['tcp_binomial'] = tcp_test_formula
 
-    survieg_append_sur_une_simu = \
-        np.exp(-n_unique_tot_sur_une_simu - BETAG[type_cell] * (dosen_append_sur_une_simu_np ** 2))
-
-    analysis_dataframe_temp['cell_survival_global'] = survieg_append_sur_une_simu
-
     # Calcul des TCP avec les survies globales
 
     exp_survieg = np.exp(-np.asarray(survieg_append_sur_une_simu))
@@ -622,8 +673,13 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     analysis_dataframe_temp['tcp_formula_poisson_global'] = tcp_une_simu_global
     analysis_dataframe_temp['tcp_binomial_global'] = tcp_test_formula_global
 
-    spheroid_dose = data_run_level[0]["fEdep_sph"] * KEV_IN_J / masse_tum
-    analysis_dataframe_temp['spheroid_dose'] = spheroid_dose
+    # Calcul des TCP avec les survies totales
+
+    exp_survietot = np.exp(-np.asarray(survietot_append_sur_une_simu))
+    tcp_une_simu_tot = np.prod(exp_survietot)
+    tcp_test_formula_tot = np.prod(1 - survietot_append_sur_une_simu)
+    analysis_dataframe_temp['tcp_formula_poisson_total'] = tcp_une_simu_tot
+    analysis_dataframe_temp['tcp_binomial_total'] = tcp_test_formula_tot
 
 
     return pd.concat([analysis_dataframe, analysis_dataframe_temp], ignore_index=True)
@@ -655,7 +711,6 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
     if test_file_not_empty != 0:
         elements_to_remove = []
         start_time = time.time()
-        print(len(data_run_level))
         for ind_modif_id in range(0, len(data_run_level)):
             if (data_run_level[ind_modif_id]["ID_Cell"]) in deleted_id_txt:
                 elements_to_remove.append(ind_modif_id)
@@ -780,7 +835,7 @@ def calculate_doses(data_run_level, data_event_level, indice_available_diffusion
             txt_cells_masses = f"Cpop_Masse_Txt/Previous_Data/MassesCell_{nom_config}.txt"
 
     elif study_type == 1:
-        txt_cells_masses = f"Cpop_Masse_Txt/MassesCell_{nom_config}.txt"
+        txt_cells_masses = f"Cpop_Masse_Txt/Previous_Data/MassesCell_{nom_config}.txt"
 
     masses_cytoplasms, masses_nuclei, masses_cells = geometry_informations.masses_cells_reading(txt_cells_masses)
     dosen_append_sur_une_simu_np = ((data_run_level["fEdepn"]) * KEV_IN_J / masses_nuclei)
@@ -885,6 +940,8 @@ def calculate_survival (n_unique, cell_line, analysis_dataframe_temp, dataframe)
     survieg_append_sur_une_simu = \
         np.exp(-n_unique_tot_sur_une_simu - BETAG[type_cell] * (dosen_append_sur_une_simu_np ** 2))
 
+    print("type_cell: ", type_cell)
+
     analysis_dataframe_temp['cell_survival_global'] = survieg_append_sur_une_simu
 
     # Calcul des TCP avec les survies globales
@@ -908,25 +965,25 @@ def if_internalization_study():
     if labeling_combobox.winfo_exists():
         labeling_combobox.destroy()
     cell_compartment_label = tkinter.Label(window, text="Intra cellular distribution name :", fg='blue')
-    cell_compartment_label.place(x=100, y=100)
+    cell_compartment_label.place(x=100, y=150)
     selected_distrib_name = tkinter.StringVar()
     cell_compartment_combobox = tkinter.ttk.Combobox(window, width=35, textvariable=selected_distrib_name)
-    cell_compartment_combobox['values'] = ['Membrane', 'Cytoplasm', 'Homogeneous', 'Nucleus']
-    cell_compartment_combobox.place(x=400, y=100)
+    cell_compartment_combobox['values'] = ['Membrane', 'Cytoplasm', 'Homogeneous', 'Nucleus', 'MixedNetiUniform', 'MixedNetiLogNormal']
+    cell_compartment_combobox.place(x=400, y=150)
 
 def if_labeling_study() :
-    global labeling_percentage,labeling_percentage_entry
+    global labeling_percentage,labeling_percentage_entry, labeling_combobox
     if cell_compartment_label.winfo_exists():
         cell_compartment_label.destroy()
     if cell_compartment_combobox.winfo_exists():
         cell_compartment_combobox.destroy()
     labeling_percentage = tkinter.Label(window, text="Labeling percentage : ", fg='blue')
-    labeling_percentage.place(x=100, y=100)
+    labeling_percentage.place(x=100, y=150)
     selected_labeling = tkinter.StringVar()
     labeling_combobox = tkinter.ttk.Combobox(window, width=35, textvariable=selected_labeling)
-    labeling_combobox['values'] = ['100%', '010%', '001%']
+    labeling_combobox['values'] = ['100%', '10%', '1%']
     labeling_combobox.current(0)
-    labeling_combobox.place(x=400, y=100)
+    labeling_combobox.place(x=400, y=150)
 
 def id_deletion_of_root_outputs_with_errors():
     """
@@ -938,16 +995,19 @@ def id_deletion_of_root_outputs_with_errors():
     indexe_of_root_output = 0
     indexes_root_files_without_errors = np.array([])
 
+    labeling = 100 if (study_type != 1) else float(labeling_combobox.get().rstrip('%'))
+
     while indexe_of_root_output < nb_complete_simulations:
         try:
             root_file_name =\
                 f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{indexe_of_root_output}_t0.root"
+            print("root_file_name: ", root_file_name)
             with uproot.open(root_file_name) as root_file:
                 _ = root_file['cell']['nameParticle'].array(library="np") #test to see if file is corrupted
                 event_id =  root_file['cell']['eventID'].array(library="np")
-            if(np.max(event_id)>0.90 * nb_cellules_reel * int(nb_particle_per_cell)):
+            if(np.max(event_id)>0.90 * nb_cellules_reel * int(nb_particle_per_cell) * labeling/100):
                 indexes_root_files_without_errors = np.append(indexes_root_files_without_errors, indexe_of_root_output)
-                #Security to remove unfinished simulations. We cannot know in advance the number if events.
+                #Security to remove unfinished simulations. We cannot know in advance the number of events.
                 #So, the value of 0.9 is arbitrary.
             indexe_of_root_output += 1
         except uproot.KeyInFileError:
@@ -958,23 +1018,17 @@ def id_deletion_of_root_outputs_with_errors():
     return indexes_root_files_without_errors.astype(int), nb_files_with_errors
 
 def graphic_window():
-    global window, study_type_radiovalue, cell_compartment_combobox, geom_name_combobox, radionuclide_entry,\
+    global window, study_type_radiovalue, cell_compartment_combobox, radionuclide_distribution_combobox, geom_name_combobox, radionuclide_entry,\
         nb_simulations_entry, diffusion_combobox, number_particles_per_cell_combobox, cell_line_combobox,\
         cell_compartment_label, verbose_radiovalue, labeling_combobox, choiceGeom_radiovalue
 
     window = tkinter.Tk()
-    window.geometry("1000x800")
+    window.geometry("1000x850")
 
     window.title("CAMPINGS")
 
     study_type_label = tkinter.Label(window, text = "Type of study :", fg='red')
     study_type_label.place (x=100, y=50)
-
-    selected_labeling = tkinter.StringVar()
-    labeling_combobox = tkinter.ttk.Combobox(window, width=35, textvariable=selected_labeling)
-    labeling_combobox['values'] = ['100%', '10%', '1%']
-    labeling_combobox.current(0)
-    labeling_combobox.place(x=400, y=100)
 
     study_type_radiovalue = tkinter.IntVar()
     study_type_radiovalue.set(0)
@@ -988,71 +1042,82 @@ def graphic_window():
     study_type_radiovalue_1.place(x=520, y=50)
     study_type_radiovalue_2.place(x=620, y=50)
 
+    radionuclide_distribution_label = tkinter.Label(window, text="Intra cellular distribution name :", fg='blue')
+    radionuclide_distribution_label.place(x=100, y=100)
+    selected_radionuclide_distribution = tkinter.StringVar()
+    radionuclide_distribution_combobox = tkinter.ttk.Combobox(window, width=35 , textvariable=selected_radionuclide_distribution)
+    radionuclide_distribution_combobox['values'] = ["Uniform", 'LogNormal', 'LogNormalShape0_5', 'LogNormalShape1', 'LogNormalShape2']
+    radionuclide_distribution_combobox.current(0)
+    radionuclide_distribution_combobox.place(x=400, y=100)
+
     cell_compartment_label = tkinter.Label(window, text="Intra cellular distribution name :", fg='blue')
-    cell_compartment_label.place(x=100, y=100)
+    cell_compartment_label.place(x=100, y=150)
     selected_distrib_name = tkinter.StringVar()
     cell_compartment_combobox = tkinter.ttk.Combobox(window, width=35 , textvariable=selected_distrib_name)
-    cell_compartment_combobox['values'] = ['Membrane', 'Cytoplasm', 'Homogeneous', 'Nucleus']
+    cell_compartment_combobox['values'] = ['Membrane', 'Cytoplasm', 'Homogeneous', 'Nucleus', 'MixedNetiUniform', 'MixedNetiLogNormal']
     cell_compartment_combobox.current(0)
-    cell_compartment_combobox.place(x=400, y=100)
+    cell_compartment_combobox.place(x=400, y=150)
 
     geom_name_label = tkinter.Label(window, text = "Geometry name :", fg='blue')
-    geom_name_label.place (x=100, y=150)
+    geom_name_label.place (x=100, y=200)
     geom_choice = tkinter.StringVar()
     geom_name_combobox = tkinter.ttk.Combobox(window, width=35 , textvariable=geom_choice)
     geom_name_combobox['values'] = ["30µmRadius Spheroid, 75 % cell packing", "50µmRadius Spheroid, 75 % cell packing",
                          "70µmRadius Spheroid, 75 % cell packing", "160µmRadius Spheroid, 75 % cell packing",
                          "95µmRadius Spheroid, 25 % cell packing", "95µmRadius Spheroid, 50 % cell packing",
                          "95µmRadius Spheroid, 75 % cell packing", "95µmRadius Spheroid, 75 % cell packing 2",
-                         "100µmRadius Spheroid, 40 % cell packing", "140µmRadius Spheroid, 75 % cell packing"]
-    geom_name_combobox.place(x=400, y=150)
+                         "100µmRadius Spheroid, 40 % cell packing", "140µmRadius Spheroid, 75 % cell packing",
+                         "95µmRadius Spheroid, 54 % cell packing, MIRDcell", "95µmRadius Spheroid, 47 % cell packing",
+                         "100µmRadius Spheroid, 47 % cell packing"]
+    geom_name_combobox.place(x=400, y=200)
 
     radionuclide_label = tkinter.Label(window, text = "Radionuclide used :", fg='blue')
-    radionuclide_label.place (x=100, y=200)
+    radionuclide_label.place (x=100, y=250)
     radionuclide_entry = tkinter.Entry(window, width=35)
     radionuclide_entry.insert(tkinter.END, "At211")
-    radionuclide_entry.place(x=400, y=200)
+    radionuclide_entry.place(x=400, y=250)
 
     nb_simulations_label = tkinter.Label(window, text = "Number of simulations to analyse :", fg='blue')
-    nb_simulations_label.place (x=100, y=250)
+    nb_simulations_label.place (x=100, y=300)
     nb_simulations_entry = tkinter.Entry(window, width=35)
     nb_simulations_entry.insert(tkinter.END, "20")
-    nb_simulations_entry.place(x=400, y=250)
+    nb_simulations_entry.place(x=400, y=300)
 
     diffusion_label = tkinter.Label(window, text = "Daughter diffusion :", fg='blue')
-    diffusion_label.place (x=100, y=300)
+    diffusion_label.place (x=100, y=350)
     diffusion_choice = tkinter.StringVar()
     diffusion_combobox = tkinter.ttk.Combobox(window, width=35, textvariable=diffusion_choice)
     diffusion_combobox['values'] = ["Yes", "No"]
     diffusion_combobox.current(1)
-    diffusion_combobox.place(x=400, y=300)
+    diffusion_combobox.place(x=400, y=350)
 
     number_particles_per_cell_label = tkinter.Label(window, text = "Number of alpha particles per cell :", fg='blue')
-    number_particles_per_cell_label.place(x=100, y=350)
+    number_particles_per_cell_label.place(x=100, y=400)
     number_particles_per_cell_choice = tkinter.StringVar()
     number_particles_per_cell_combobox = tkinter.ttk.Combobox(window, width=35,
                                                           textvariable=number_particles_per_cell_choice)
     number_particles_per_cell_combobox['values'] = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "11", "12","13", "14", "15", "16", "20",
-                                                    "23","26","31","42"]
+                                                    "23","26","31","32","42", "66", "98", "131", "164", "197", "229", "262", "295",
+                                                    "328", "656", "983", "1311", "1639", "3278", "4917", "6556", "8195"]
     number_particles_per_cell_combobox.current(0)
-    number_particles_per_cell_combobox.place(x=400, y=350)
+    number_particles_per_cell_combobox.place(x=400, y=400)
 
     cell_line_label = tkinter.Label(window, text="Cell line :", fg='blue')
-    cell_line_label.place(x=100, y=400)
+    cell_line_label.place(x=100, y=450)
     cell_line_choice = tkinter.StringVar()
     cell_line_combobox = tkinter.ttk.Combobox(window, width=35 , textvariable=cell_line_choice)
     cell_line_combobox['values'] = ['HSG', 'V79', 'CHO-K1']
     cell_line_combobox.current(0)
-    cell_line_combobox.place(x=400, y=400)
+    cell_line_combobox.place(x=400, y=450)
 
     choiceGeom = tkinter.Label(window, text="Use the geometry associated with the cell line ? :", fg='blue')
-    choiceGeom.place(x=100, y=450)
+    choiceGeom.place(x=100, y=500)
     choiceGeom_radiovalue = tkinter.IntVar()
     choiceGeom_radiovalue.set(0)
     choiceGeom_radiovalue_no = tkinter.Radiobutton(window, text="No", variable=choiceGeom_radiovalue, value=0)
     choiceGeom_radiovalue_yes = tkinter.Radiobutton(window, text="Yes", variable=choiceGeom_radiovalue, value=1)
-    choiceGeom_radiovalue_yes.place(x=450, y=450)
-    choiceGeom_radiovalue_no.place(x=550, y=450)
+    choiceGeom_radiovalue_yes.place(x=450, y=500)
+    choiceGeom_radiovalue_no.place(x=550, y=500)
 
     verbose_label = tkinter.Label(window, text = "Verbose :", fg='green')
     verbose_label.place (x=825, y=200)
@@ -1064,7 +1129,7 @@ def graphic_window():
     verbose_radiovalue_no.place(x=875, y=250)
 
     validate_button_1 = tkinter.Button(window, text = "Validate", command = add_new_buttons_to_graphic_window)
-    validate_button_1.place(x=500, y=500)
+    validate_button_1.place(x=500, y=550)
 
     window.mainloop()
 
@@ -1073,13 +1138,15 @@ def create_folder_for_output_analysis_files():
     dossier_root = study_type_folder_name + "/" + available_data_name_file[available_data_combobox.current()] + "/"
     index_of_first_root_output = 0 #Works only if the indexes of root files start at 0
     nb_particle_per_cell = nb_particles_per_cell[number_particles_per_cell_combobox.current()]
+    print("study_type: ", study_type)
     if study_type == 0 or study_type == 2:
         nom_dossier_pour_excel_analyse = f"{available_data_date[available_data_combobox.current()]}" \
                                          f"__{spheroid_compaction}CP_" \
                                          f"{r_sph}um_" \
                                          f"{rn_name}_diff{bool_diff[diffusion_combobox.current()]}_" \
                                          f"{nb_particle_per_cell}ppc_" \
-                                         f"{cell_line_combobox.get()}"
+                                         f"{cell_line_combobox.get()}" \
+                                         f"{radionuclide_distribution_combobox.get()}"
     elif study_type ==1:
         nom_dossier_pour_excel_analyse = f"{available_data_date[available_data_combobox.current()]}" \
                                          f"__{labeling_combobox.get()}_" \
@@ -1087,7 +1154,8 @@ def create_folder_for_output_analysis_files():
                                          f"{r_sph}um_" \
                                          f"{rn_name}_diff{bool_diff[diffusion_combobox.current()]}_" \
                                          f"{nb_particle_per_cell}ppc_" \
-                                         f"{cell_line_combobox.get()}"
+                                         f"{cell_line_combobox.get()}_" \
+                                         f"{radionuclide_distribution_combobox.get()}"
 
     print("nom_dossier_pour_excel_analyse : ", nom_dossier_pour_excel_analyse)
 
@@ -1141,7 +1209,8 @@ def main():
             print("Deleted Cells", txt_id_deleted_cells)
 
     elif study_type == 1:
-        txt_id_deleted_cells = f"Cpop_Deleted_Cells_ID_Txt/IDCell_{nom_config}.txt"
+        txt_id_deleted_cells = f"Cpop_Deleted_Cells_ID_Txt/Previous_Data/IDCell_{nom_config}.txt"
+        print("Deleted Cells", txt_id_deleted_cells)
 
     real_id_cells, test_file_not_empty, deleted_id_txt =\
         geometry_informations.cpop_real_cell_id_determination(txt_id_deleted_cells, nb_cellules_xml)
@@ -1171,6 +1240,9 @@ def main():
 
     analysis_dataframe = pd.DataFrame()
 
+    print("indexes_root_files_without_errors_np: ", indexes_root_files_without_errors_np)
+    print("nb_files_with_errors: ", nb_files_with_errors)
+
     for simulation_id in indexes_root_files_without_errors_np:
 
         # Labeling and Internalization
@@ -1183,7 +1255,8 @@ def main():
 
             analysis_dataframe = calculations_from_root_file(analysis_dataframe, root_data_np,
                                                             indice_available_diffusion_info,
-                                                            real_id_cells, test_file_not_empty, deleted_id_txt, type_cell, elements_to_remove)
+                                                            real_id_cells, test_file_not_empty, deleted_id_txt, type_cell,
+                                                             elements_to_remove, indice_available_edep_sph_info)
 
 
         # BNCT
@@ -1255,12 +1328,16 @@ def main():
     progress_bar['value'] = math.floor(progress_bar['value'])
 
     if study_type == 0:
+        analysis_dataframe.to_csv(
+            f"AnalysisResults/{study_type_folder_name}/{nom_dossier_pour_excel_analyse}/AllData_{cell_compartment}.csv")
         mean_and_std_calculation_dataframe(analysis_dataframe).to_csv(f"AnalysisResults/{study_type_folder_name}/" 
                                                                   f"{nom_dossier_pour_excel_analyse}/Emission" 
                                                                   f"{cell_compartment}.csv")
     elif study_type == 1:
+        analysis_dataframe.to_csv(
+            f"AnalysisResults/{study_type_folder_name}/{nom_dossier_pour_excel_analyse}/AllData.csv")
         mean_and_std_calculation_dataframe(analysis_dataframe).to_csv(f"AnalysisResults/{study_type_folder_name}/"
-                                                                      f"{nom_dossier_pour_excel_analyse}/Results.csv")
+                                                                      f"{nom_dossier_pour_excel_analyse}" + "/Results.csv")
 
     print()
     print_mean_results(analysis_dataframe)
@@ -1288,7 +1365,8 @@ def add_new_buttons_to_graphic_window():
     choice_geom, line
 
     geom_list = ["Elg030um75CP", "Elg050um75CP", "Elg070um75CP", "Elg160um75CP", "Elg095um25CP",
-                 "Elg095um50CP", "Elg095um75CP", "Elg095um75CP_2", "Elg100um40CP", "Neti140um75CP"]
+                 "Elg095um50CP", "Elg095um75CP", "Elg095um75CP_2", "Elg100um40CP", "Neti140um75CP", "Mir095um50CP",
+                 "Elg095um47CP", "Net100um47CP"]
 
 
     choice_geom = choiceGeom_radiovalue.get()
@@ -1309,13 +1387,10 @@ def add_new_buttons_to_graphic_window():
         # Suivant le choix de l'utilisateur pour les géométries, le dossier où se trouve les fichiers .xml change ("Previous_Data" ou "New_Data" pour les données avec les nouvelles géométries)
         # Le nom de la config change aussi : Pour distinguer entre les trois fichiers pour chaque lignée, pour chaque compaction et rayon de sphéroïde, on ajoute le nom de la lignée à la fin du fichier
         if choice_geom == 1:
-            print("coucou")
             nom_config = (geom_list[geom_name_combobox.current()]) + "_" + line  # Les fichiers contenant les masses de toutes les cellules,
             # et ceux des ID de cellules supprimés de CPOP à G4,
             # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
             xml_geom = "Cpop_Geom_XML/New_Data/" + nom_config + ".cfg" + ".xml"
-            print(xml_geom)
-            print(nom_config)
             study_type_folder_name = "Internalization/New_Data"
 
             if line == "HSG" :
@@ -1333,16 +1408,18 @@ def add_new_buttons_to_graphic_window():
             # et ceux des ID de cellules supprimés de CPOP à G4,
             # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
             xml_geom = "Cpop_Geom_XML/Previous_Data/" + nom_config + ".cfg" + ".xml"
-            print(xml_geom)
-            print(nom_config)
             study_type_folder_name = "Internalization/Previous_Data"
             nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
+
 
         cell_compartment = cell_compartment_combobox.get()
         simulation_name = cell_compartment
 
     # Labeling
     elif study_type == 1:
+        nom_config = (
+        geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
+        xml_geom = "Cpop_Geom_XML/Previous_Data/" + nom_config + ".cfg" + ".xml"
         labeling_percentage_get = labeling_combobox.get()
         study_type_folder_name = "Labeling"
         nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
@@ -1387,14 +1464,17 @@ def add_new_buttons_to_graphic_window():
 
     #nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
     # Nombre de cellules contenues dans le fichier .xml de géométrie créé par CPOP
-    print(nb_cellules_xml)
     output_path = "Root/outputMultiCellulaire/" + study_type_folder_name + "/"
 
     output_folders_name = [f for f in os.listdir(output_path)]
 
+    print("output_folders_name: ", output_folders_name)
+
     bool_diff = ["Yes","No"]
     rn_name = radionuclide_entry.get()
-    nb_particles_per_cell = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "11", "12", "13", "14", "15", "16","20","23","26","31","42"]
+    nb_particles_per_cell = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "11", "12", "13", "14", "15", "16",
+                             "20","23","26","31","32","42", "66", "98", "131", "164", "197", "229", "262", "295", "328",
+                             "656", "983", "1311", "1639", "3278", "4917", "6556", "8195"]
 
     type_cell = cell_line_combobox.current()
 
@@ -1405,11 +1485,11 @@ def add_new_buttons_to_graphic_window():
         spheroid_compaction = geom_list[geom_name_combobox.current()][8:10]
 
         for i in range(0, len(output_folders_name)):
-
-            # Si l'utilisateur ne veut pas de géométrie dépendante de la lignée : Aucun changement dans le nom des data a rechercher
-            if ("_" + cell_compartment + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
+            name_folder = ("_" + cell_compartment + "_" + str(radionuclide_distribution_combobox.get()) + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
                 rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
-                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc")) in output_folders_name[i] and choice_geom != 1:
+                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc"))
+            # Si l'utilisateur ne veut pas de géométrie dépendante de la lignée : Aucun changement dans le nom des data a rechercher
+            if name_folder in output_folders_name[i] and choice_geom != 1:
                 available_data_date.append(output_folders_name[i][0:10])
                 available_data_name_file.append(output_folders_name[i])
 
@@ -1422,26 +1502,29 @@ def add_new_buttons_to_graphic_window():
 
     elif study_type == 1:
         for i in range(0, len(output_folders_name)):
-            r_sph = geom_list[geom_name_combobox.current()][4:7]
-            spheroid_compaction = geom_list[geom_name_combobox.current()][9:11]
-            if ("_" + labeling_percentage_get + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
+            r_sph = geom_list[geom_name_combobox.current()][3:6]
+            spheroid_compaction = geom_list[geom_name_combobox.current()][8:10]
+            print("_" + labeling_percentage_get + "_" + str(radionuclide_distribution_combobox.get()) + "_"+ str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
+                rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
+                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc"))
+            if ("_" + labeling_percentage_get + "_" + str(radionuclide_distribution_combobox.get()) + "_"+ str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
                 rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
                 str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc")) in output_folders_name[i]:
                 available_data_date.append(output_folders_name[i][0:10])
                 available_data_name_file.append(output_folders_name[i])
 
     available_data_label = tkinter.Label(window, text="Data available :", fg='blue')
-    available_data_label.place(x=100, y=510)
+    available_data_label.place(x=100, y=560)
     available_data_choice = tkinter.StringVar()
     available_data_combobox = tkinter.ttk.Combobox(window, width=35, textvariable=available_data_choice)
     available_data_combobox['values'] = available_data_date
-    available_data_combobox.place(x=400, y=550)
+    available_data_combobox.place(x=400, y=600)
 
     nom_fichier_root = "output_"
     # Les fichiers root, contenus dans le dossier_root, s'appellent nom_fichier_root{0,...}.root
 
     validate_button_2 = tkinter.Button(window, text="Validate", command=main)
-    validate_button_2.place(x=500, y=600)
+    validate_button_2.place(x=500, y=650)
 
     progress_bar = tkinter.ttk.Progressbar(
         window,
@@ -1449,10 +1532,10 @@ def add_new_buttons_to_graphic_window():
         mode='determinate',
         length=280,
         value=0)
-    progress_bar.grid(column=0, row=0, columnspan=2, padx=400, pady=650)
+    progress_bar.grid(column=0, row=0, columnspan=2, padx=400, pady=700)
 
     progress_bar_label = tkinter.ttk.Label(window, text = update_progress_bar_label())
-    progress_bar_label.place(x=450, y=700)
+    progress_bar_label.place(x=450, y=750)
 
 
 if __name__ == '__main__':
