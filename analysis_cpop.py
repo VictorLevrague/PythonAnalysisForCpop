@@ -398,8 +398,6 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     nb_cellules_reel = len(real_id_cells)
     perfect_id_cells = np.arange(0,nb_cellules_reel)
 
-    # analysis_dataframe_temp['simulation_id'] = np.full((1, nb_cellules_reel), simulation_id)[0]
-
     analysis_dataframe_temp['id_cell'] = np.arange(nb_cellules_reel)
     analysis_dataframe_temp['zone_cell'] = zone_cell
 
@@ -443,45 +441,53 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     ####################### Modification des ID de CPOP ###################################
 
     ################ data_event_level #########################################
-    for ind_modif_id in range(0, len(data_event_level)):
-        index_id_cell = np.where(real_id_cells == data_event_level[ind_modif_id]["ID_Cell"])
-        data_event_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
 
-        index_cellule_emission = np.where(real_id_cells == data_event_level[ind_modif_id]["Cellule_D_Emission"])
-        data_event_level[ind_modif_id]["Cellule_D_Emission"] = perfect_id_cells[index_cellule_emission]
+    data_event_level['ID_Cell'] = np.searchsorted(real_id_cells, data_event_level['ID_Cell'])
+    data_event_level['Cellule_D_Emission'] = np.searchsorted(real_id_cells, data_event_level['Cellule_D_Emission'])
 
     if test_file_not_empty != 0:
         data_run_level = np.delete(data_run_level, elements_to_remove, 0)
 
-    # start_time = time.time()
-    data_run_level["ID_Cell"] = perfect_id_cells
+    data_run_level["ID_Cell"] = np.arange(nb_cellules_reel)
 
-
-    ei = data_event_level["Ei"]  # Energy in keV
+    ei = data_event_level["Ei"]
     ef = data_event_level["Ef"]
-    ###Fit from Mario :
-    #dn1_de_continuous_pre_calculated = dn1_de_continuous(type_cell)
-    ###Linear interpolation of alpha tables : #outdated
-    #dn1_de_continuous_pre_calculated = dn1_de_continuous_interp_tables(type_cell)
-    ###Moving average of dn1_dE from alpha tables :
-    # dn1_de_continuous_pre_calculated = nanox.dn1_de_continuous_mv_tables(line, "em", method_threshold="Interp")
-    dn1_de_continuous_pre_calculated_with_global_correction = nanox.dn1_de_continuous_mv_tables_global_events_correction(line, "em", method_threshold="Interp")
+    dn1_de_continuous_pre_calculated_with_global_correction = nanox.dn1_de_continuous_mv_tables_global_events_correction(
+        line, "em", "helium", method_threshold="Interp")
+
+    # for ind_modif_id in range(0, len(data_event_level)):
+    #     index_id_cell = np.where(real_id_cells == data_event_level[ind_modif_id]["ID_Cell"])
+    #     data_event_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
+    #
+    #     index_cellule_emission = np.where(real_id_cells == data_event_level[ind_modif_id]["Cellule_D_Emission"])
+    #     data_event_level[ind_modif_id]["Cellule_D_Emission"] = perfect_id_cells[index_cellule_emission]
+    #
+    # if test_file_not_empty != 0:
+    #     data_run_level = np.delete(data_run_level, elements_to_remove, 0)
+    #
+    # # start_time = time.time()
+    # data_run_level["ID_Cell"] = perfect_id_cells
+    #
+    #
+    # ei = data_event_level["Ei"]  # Energy in keV
+    # ef = data_event_level["Ef"]
+    # ###Moving average of dn1_dE from alpha tables :
+    # dn1_de_continuous_pre_calculated_with_global_correction = nanox.dn1_de_continuous_mv_tables_global_events_correction(line, "em", "helium", method_threshold="Interp")
     print("line: ", line)
+    print("WARNING: the cell survivals were calculated for helium ions")
     emax = np.max(ei)
     n1 = nanox.number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated_with_global_correction, emax)
 
     n_tab = (n1(ei) - n1(ef))
-    n_sub_tab = nanox.z_restricted_func(ei, ef, cell_line_combobox.get())
+    n_sub_tab = nanox.z_tilde_func(ei, ef, cell_line_combobox.get(), "helium")
 
     if study_type == 0:
         # Si l'utilisateur veut des géométries qui propres à chaque lignée
         if choice_geom == 1:
             txt_cells_masses=f"Cpop_Masse_Txt/New_Data/MassesCell_{nom_config}.txt"
-            # print("Masse Cells", txt_cells_masses)
         # Si l'utilisateur veut des géométries qui ne sont pas propres à chaque lignée
         else:
             txt_cells_masses = f"Cpop_Masse_Txt/Previous_Data/MassesCell_{nom_config}.txt"
-            # print("Masse Cells", txt_cells_masses)
 
     elif study_type == 1:
         txt_cells_masses=f"Cpop_Masse_Txt/Previous_Data/MassesCell_{nom_config}.txt"
@@ -595,12 +601,9 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     analysis_dataframe_temp['cell_survival_local'] = surviel_append_sur_une_simu
 
-    print(analysis_dataframe_temp['cell_survival_local'])
 
     survieg_append_sur_une_simu = np.exp(-n_sub_unique_tot_sur_une_simu)
     analysis_dataframe_temp['cell_survival_global'] = survieg_append_sur_une_simu
-
-    print(analysis_dataframe_temp['cell_survival_global'])
 
     survietot_append_sur_une_simu = surviel_append_sur_une_simu * survieg_append_sur_une_simu
     analysis_dataframe_temp['cell_survival_total'] = survietot_append_sur_une_simu
@@ -631,7 +634,6 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
         / (2 * beta_ref_hsg_aoki_nakano)
 
     spheroid_dose = data_run_level[0]["fEdep_sph"] * KEV_IN_J / masse_tum
-    # print("Spheroid dose: ", spheroid_dose)
     analysis_dataframe_temp['spheroid_dose'] = spheroid_dose
 
     analysis_dataframe_temp['biological_dose_furusawa_(gy)'] = dose_bio_append_sur_une_simu_furusawa
@@ -641,21 +643,10 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     analysis_dataframe_temp['rbeµ_furusawa2000_cell'] = dose_bio_append_sur_une_simu_furusawa / (dosen_append_sur_une_simu_np + dosec_append_sur_une_simu_np)
     analysis_dataframe_temp['rbeµ_hsg_aoki_nakano2014_cell'] = dose_bio_append_sur_une_simu_aoki_nakano_hsg / (dosen_append_sur_une_simu_np + dosec_append_sur_une_simu_np)
     if indice_available_edep_sph_info:
-        # print("indice_available_edep_sph_info: ", indice_available_edep_sph_info)
         analysis_dataframe_temp['rbe_macro_furusawa'] = (dose_bio_macro_furusawa /
                     analysis_dataframe_temp['spheroid_dose'])
-        # print("rbe_macro furu: ", analysis_dataframe_temp['rbe_macro_furusawa'])
         analysis_dataframe_temp['rbe_macro_aoki_nakano'] = (dose_bio_macro_aoki_nakano /
                     analysis_dataframe_temp['spheroid_dose'])
-        # print("rbe_macro aoki: ", analysis_dataframe_temp['rbe_macro_aoki_nakano'])
-    # print(analysis_dataframe_temp['rbeµ'])
-    #
-    # print("survie l [0] = ", surviel_append_sur_une_simu[1])
-    # print("alpha_ref = ", ALPHA_PHOTON[cell_line])
-    # print("beta_ref = ", BETA_PHOTON[cell_line])
-    # print("dose bio [0] = ", dose_bio_append_sur_une_simu[1])
-    # print("dose nucl [0] = ", dosen_append_sur_une_simu_np[1])
-
 
     # Calcul des TCP avec les survies locales
 
@@ -800,7 +791,7 @@ def number_of_lethals_events(data_event_level, particle):
     # particle == 1 : Helium
     # particle == 2 : Lithium
 
-    dn1_de_continuous_pre_calculated = nanox.dn1_de_continuous_mv_tables(line, particle,"em", method_threshold="Interp")
+    dn1_de_continuous_pre_calculated = nanox.dn1_de_continuous_mv_tables(line,"em","helium", method_threshold="Interp")
     emax = np.max(ei)
 
     n1 = nanox.number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated, emax)
@@ -992,30 +983,31 @@ def id_deletion_of_root_outputs_with_errors():
         ids of simulations that returned a root output without errors when they were opened, in numpy format
         the number of errors encountered
     """
-    indexe_of_root_output = 0
-    indexes_root_files_without_errors = np.array([])
-
+    indexes_root_files_without_errors = []
     labeling = 100 if (study_type != 1) else float(labeling_combobox.get().rstrip('%'))
 
-    while indexe_of_root_output < nb_complete_simulations:
+    for indexe_of_root_output in range(nb_complete_simulations):
         try:
-            root_file_name =\
-                f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{indexe_of_root_output}_t0.root"
+            root_file_name = f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{indexe_of_root_output}_t0.root"
             print("root_file_name: ", root_file_name)
+
             with uproot.open(root_file_name) as root_file:
-                _ = root_file['cell']['nameParticle'].array(library="np") #test to see if file is corrupted
-                event_id =  root_file['cell']['eventID'].array(library="np")
-            if(np.max(event_id)>0.90 * nb_cellules_reel * int(nb_particle_per_cell) * labeling/100):
-                indexes_root_files_without_errors = np.append(indexes_root_files_without_errors, indexe_of_root_output)
-                #Security to remove unfinished simulations. We cannot know in advance the number of events.
-                #So, the value of 0.9 is arbitrary.
-            indexe_of_root_output += 1
+                _ = root_file['cell']['nameParticle'].array(library="np")  # test to see if file is corrupted
+                event_id = root_file['cell']['eventID'].array(library="np")
+
+            if np.max(event_id) > 0.90 * nb_cellules_reel * int(nb_particle_per_cell) * labeling / 100:
+                indexes_root_files_without_errors.append(indexe_of_root_output)
+                # Security to remove unfinished simulations. We cannot know in advance the number of events.
+                # So, the value of 0.9 is arbitrary.
+
         except uproot.KeyInFileError:
-            indexe_of_root_output += 1
+            pass
+
     indexes_root_files_without_errors = np.sort(indexes_root_files_without_errors)
     nb_files_with_errors = nb_complete_simulations - len(indexes_root_files_without_errors)
 
-    return indexes_root_files_without_errors.astype(int), nb_files_with_errors
+    return np.array(indexes_root_files_without_errors, dtype=int), nb_files_with_errors
+
 
 def graphic_window():
     global window, study_type_radiovalue, cell_compartment_combobox, radionuclide_distribution_combobox, geom_name_combobox, radionuclide_entry,\
@@ -1338,6 +1330,8 @@ def main():
             f"AnalysisResults/{study_type_folder_name}/{nom_dossier_pour_excel_analyse}/AllData.csv")
         mean_and_std_calculation_dataframe(analysis_dataframe).to_csv(f"AnalysisResults/{study_type_folder_name}/"
                                                                       f"{nom_dossier_pour_excel_analyse}" + "/Results.csv")
+
+    print(f"AnalysisResults/{study_type_folder_name}/{nom_dossier_pour_excel_analyse}/AllData_{cell_compartment}.csv")
 
     print()
     print_mean_results(analysis_dataframe)
