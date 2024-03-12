@@ -25,6 +25,8 @@ import tkinter
 import tkinter.ttk
 import uproot
 import time
+import warnings
+warnings.filterwarnings("ignore")
 
 KEV_IN_J = 1.60218 * 1e-16
 WATER_DENSITY = 1e-15  #kg/µm³
@@ -321,8 +323,7 @@ def mean_and_std_calculation_dataframe(analysis_dataframe):
 def open_root_file(simulation_id, particle):
     if particle == 0 :
         root_file_name = f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{simulation_id}_t0.root"
-        print("nom_fichier_root", nom_fichier_root)
-        print("root_file_name =", root_file_name)
+        print("root_id =", simulation_id)
 
     elif particle == 1 :
         root_file_name = f"Root/outputMultiCellulaire/{dossier_root}/Helium/{nom_fichier_root}{simulation_id}_t0.root"
@@ -473,8 +474,8 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     # ef = data_event_level["Ef"]
     # ###Moving average of dn1_dE from alpha tables :
     # dn1_de_continuous_pre_calculated_with_global_correction = nanox.dn1_de_continuous_mv_tables_global_events_correction(line, "em", "helium", method_threshold="Interp")
-    print("line: ", line)
-    print("WARNING: the cell survivals were calculated for helium ions")
+    # print("line: ", line)
+    # print("WARNING: the cell survivals were calculated for helium ions")
     emax = np.max(ei)
     n1 = nanox.number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated_with_global_correction, emax)
 
@@ -985,11 +986,13 @@ def id_deletion_of_root_outputs_with_errors():
     """
     indexes_root_files_without_errors = []
     labeling = 100 if (study_type != 1) else float(labeling_combobox.get().rstrip('%'))
+    time_start = time.time()
 
     for indexe_of_root_output in range(nb_complete_simulations):
         try:
             root_file_name = f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{indexe_of_root_output}_t0.root"
-            print("root_file_name: ", root_file_name)
+            # print("root_file_name: ", root_file_name)
+            print("root_id: ", indexe_of_root_output)
 
             with uproot.open(root_file_name) as root_file:
                 _ = root_file['cell']['nameParticle'].array(library="np")  # test to see if file is corrupted
@@ -1005,6 +1008,9 @@ def id_deletion_of_root_outputs_with_errors():
 
     indexes_root_files_without_errors = np.sort(indexes_root_files_without_errors)
     nb_files_with_errors = nb_complete_simulations - len(indexes_root_files_without_errors)
+
+    time_end = time.time()
+    print("time = ", time_end - time_start)
 
     return np.array(indexes_root_files_without_errors, dtype=int), nb_files_with_errors
 
