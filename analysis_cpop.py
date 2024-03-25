@@ -237,6 +237,10 @@ def mean_and_std_calculation_dataframe(analysis_dataframe):
         ['tcp_binomial_total'].std()
     analysis_dataframe['tcp_binomial_total'] = analysis_dataframe.groupby(['id_cell'])['tcp_binomial_total'].mean()
 
+    analysis_dataframe['tcp_binomial_total_lqd_std'] = analysis_dataframe.groupby(['id_cell']) \
+        ['tcp_binomial_lqd_total'].std()
+    analysis_dataframe['tcp_binomial_lqd_total'] = analysis_dataframe.groupby(['id_cell'])['tcp_binomial_lqd_total'].mean()
+
     analysis_dataframe['cell_survival_local_std'] = analysis_dataframe.groupby(['id_cell'])\
                                                                         ['cell_survival_local'].std()
     analysis_dataframe['cell_survival_local'] = analysis_dataframe.groupby(['id_cell'])['cell_survival_local'].mean()
@@ -454,7 +458,9 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     ei = data_event_level["Ei"]
     ef = data_event_level["Ef"]
     dn1_de_continuous_pre_calculated_with_global_correction = nanox.dn1_de_continuous_mv_tables_global_events_correction(
-        line, "em", "helium", method_threshold="Interp")
+        line, "em", "helium", let="GEANT4",  method_threshold="Interp")
+    dn1_de_continuous_pre_calculated_with_global_correction_lqd = nanox.dn1_de_continuous_mv_tables_global_events_correction(
+        line, "em", "helium", let="LQD",  method_threshold="Interp")
 
     # for ind_modif_id in range(0, len(data_event_level)):
     #     index_id_cell = np.where(real_id_cells == data_event_level[ind_modif_id]["ID_Cell"])
@@ -478,8 +484,12 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     # print("WARNING: the cell survivals were calculated for helium ions")
     emax = np.max(ei)
     n1 = nanox.number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated_with_global_correction, emax)
+    n1_lqd = nanox.number_of_lethal_events_for_alpha_traversals(dn1_de_continuous_pre_calculated_with_global_correction_lqd,
+                                                            emax)
 
     n_tab = (n1(ei) - n1(ef))
+    n_tab_lqd = (n1_lqd(ei) - n1_lqd(ef))
+
     n_sub_tab = nanox.z_tilde_func(ei, ef, cell_line_combobox.get(), "helium")
 
     if study_type == 0:
@@ -576,6 +586,12 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     n_unique_tot_sur_une_simu = n_unique
 
+    n_unique_lqd = np.bincount(data_event_level["ID_Cell"].astype(int), weights=n_tab_lqd)
+    while len(n_unique_lqd) < nb_cellules_reel:
+        n_unique_lqd = np.append(n_unique_lqd, 0)
+
+    n_unique_tot_sur_une_simu_lqd = n_unique_lqd
+
     n_sub_unique = np.bincount(data_event_level["ID_Cell"].astype(int), weights=n_sub_tab)
     while len(n_sub_unique) < nb_cellules_reel:
         n_sub_unique = np.append(n_sub_unique, 0)
@@ -602,12 +618,20 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     analysis_dataframe_temp['cell_survival_local'] = surviel_append_sur_une_simu
 
+    surviel_append_sur_une_simu_lqd = np.exp(-n_unique_tot_sur_une_simu_lqd)
+
+    surviel_append_sur_une_simu_lqd[np.where(surviel_append_sur_une_simu_lqd == 0)] = 10 ** (-299)
+
 
     survieg_append_sur_une_simu = np.exp(-n_sub_unique_tot_sur_une_simu)
     analysis_dataframe_temp['cell_survival_global'] = survieg_append_sur_une_simu
 
     survietot_append_sur_une_simu = surviel_append_sur_une_simu * survieg_append_sur_une_simu
     analysis_dataframe_temp['cell_survival_total'] = survietot_append_sur_une_simu
+
+
+    survietot_append_sur_une_simu_lqd = surviel_append_sur_une_simu_lqd * survieg_append_sur_une_simu
+    analysis_dataframe_temp['cell_survival_total_lqd'] = survietot_append_sur_une_simu_lqd
 
 
     alpha_ref_hsg_aoki_nakano = 0.259
@@ -673,6 +697,8 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
     analysis_dataframe_temp['tcp_formula_poisson_total'] = tcp_une_simu_tot
     analysis_dataframe_temp['tcp_binomial_total'] = tcp_test_formula_tot
 
+    tcp_test_formula_tot_lqd = np.prod(1 - survietot_append_sur_une_simu_lqd)
+    analysis_dataframe_temp['tcp_binomial_lqd_total'] = tcp_test_formula_tot_lqd
 
     return pd.concat([analysis_dataframe, analysis_dataframe_temp], ignore_index=True)
 
@@ -702,7 +728,6 @@ def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt
 
     if test_file_not_empty != 0:
         elements_to_remove = []
-        start_time = time.time()
         for ind_modif_id in range(0, len(data_run_level)):
             if (data_run_level[ind_modif_id]["ID_Cell"]) in deleted_id_txt:
                 elements_to_remove.append(ind_modif_id)
@@ -1325,6 +1350,8 @@ def main():
 
     progress_bar['value'] = math.floor(progress_bar['value'])
 
+    print(f"AnalysisResults/{study_type_folder_name}/{nom_dossier_pour_excel_analyse}/AllData_{cell_compartment}.csv")
+
     if study_type == 0:
         analysis_dataframe.to_csv(
             f"AnalysisResults/{study_type_folder_name}/{nom_dossier_pour_excel_analyse}/AllData_{cell_compartment}.csv")
@@ -1358,23 +1385,21 @@ def update_progress_bar_label():
     return f"Current progress: {progress_bar['value']} %"
 
 def add_new_buttons_to_graphic_window():
-    global r_sph, nom_config, spheroid_compaction, xml_geom, nb_cellules_xml, cell_compartment,\
-    nb_complete_simulations, simulation_name,\
-    study_type_folder_name, bool_diff, rn_name, nb_particles_per_cell, type_cell, available_data_date,\
-    available_data_name_file, available_data_combobox, nom_fichier_root, progress_bar, progress_bar_label, study_type,\
-    choice_geom, line
+    global r_sph, nom_config, spheroid_compaction, xml_geom, nb_cellules_xml, cell_compartment, \
+        nb_complete_simulations, simulation_name, \
+        study_type_folder_name, bool_diff, rn_name, nb_particles_per_cell, type_cell, available_data_date, \
+        available_data_name_file, available_data_combobox, nom_fichier_root, progress_bar, progress_bar_label, study_type, \
+        choice_geom, line
 
     geom_list = ["Elg030um75CP", "Elg050um75CP", "Elg070um75CP", "Elg160um75CP", "Elg095um25CP",
                  "Elg095um50CP", "Elg095um75CP", "Elg095um75CP_2", "Elg100um40CP", "Neti140um75CP", "Mir095um50CP",
                  "Elg095um47CP", "Net100um47CP"]
 
-
     choice_geom = choiceGeom_radiovalue.get()
 
-    #nom_config = (geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
-                                                 # et ceux des ID de cellules supprimés de CPOP à G4,
-                                                 # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
-
+    # nom_config = (geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
+    # et ceux des ID de cellules supprimés de CPOP à G4,
+    # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
 
     study_type = study_type_radiovalue.get()  # 0 for internalization study, 1 for labeling study
 
@@ -1387,30 +1412,31 @@ def add_new_buttons_to_graphic_window():
         # Suivant le choix de l'utilisateur pour les géométries, le dossier où se trouve les fichiers .xml change ("Previous_Data" ou "New_Data" pour les données avec les nouvelles géométries)
         # Le nom de la config change aussi : Pour distinguer entre les trois fichiers pour chaque lignée, pour chaque compaction et rayon de sphéroïde, on ajoute le nom de la lignée à la fin du fichier
         if choice_geom == 1:
-            nom_config = (geom_list[geom_name_combobox.current()]) + "_" + line  # Les fichiers contenant les masses de toutes les cellules,
+            nom_config = (geom_list[
+                geom_name_combobox.current()]) + "_" + line  # Les fichiers contenant les masses de toutes les cellules,
             # et ceux des ID de cellules supprimés de CPOP à G4,
             # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
             xml_geom = "Cpop_Geom_XML/New_Data/" + nom_config + ".cfg" + ".xml"
             study_type_folder_name = "Internalization/New_Data"
 
-            if line == "HSG" :
+            if line == "HSG":
                 nb_cellules_xml = 680000
 
-            elif line == "V79" :
+            elif line == "V79":
                 nb_cellules_xml = 750000
 
-            else :
+            else:
                 nb_cellules_xml = 780000
 
 
         else:
-            nom_config = (geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
+            nom_config = (
+            geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
             # et ceux des ID de cellules supprimés de CPOP à G4,
             # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
             xml_geom = "Cpop_Geom_XML/Previous_Data/" + nom_config + ".cfg" + ".xml"
             study_type_folder_name = "Internalization/Previous_Data"
             nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
-
 
         cell_compartment = cell_compartment_combobox.get()
         simulation_name = cell_compartment
@@ -1418,7 +1444,7 @@ def add_new_buttons_to_graphic_window():
     # Labeling
     elif study_type == 1:
         nom_config = (
-        geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
+            geom_list[geom_name_combobox.current()])  # Les fichiers contenant les masses de toutes les cellules,
         xml_geom = "Cpop_Geom_XML/Previous_Data/" + nom_config + ".cfg" + ".xml"
         labeling_percentage_get = labeling_combobox.get()
         study_type_folder_name = "Labeling"
@@ -1459,10 +1485,7 @@ def add_new_buttons_to_graphic_window():
         cell_compartment = cell_compartment_combobox.get()
         simulation_name = cell_compartment
 
-
-
-
-    #nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
+    # nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
     # Nombre de cellules contenues dans le fichier .xml de géométrie créé par CPOP
     output_path = "Root/outputMultiCellulaire/" + study_type_folder_name + "/"
 
@@ -1470,10 +1493,11 @@ def add_new_buttons_to_graphic_window():
 
     print("output_folders_name: ", output_folders_name)
 
-    bool_diff = ["Yes","No"]
+    bool_diff = ["Yes", "No"]
     rn_name = radionuclide_entry.get()
-    nb_particles_per_cell = ["1", "2", "3", "4", "5" ,"6", "7", "8", "9" ,"10", "11", "12", "13", "14", "15", "16",
-                             "20","23","26","31","32","42", "66", "98", "131", "164", "197", "229", "262", "295", "328",
+    nb_particles_per_cell = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
+                             "20", "23", "26", "31", "32", "42", "66", "98", "131", "164", "197", "229", "262", "295",
+                             "328",
                              "656", "983", "1311", "1639", "3278", "4917", "6556", "8195"]
 
     type_cell = cell_line_combobox.current()
@@ -1485,9 +1509,10 @@ def add_new_buttons_to_graphic_window():
         spheroid_compaction = geom_list[geom_name_combobox.current()][8:10]
 
         for i in range(0, len(output_folders_name)):
-            name_folder = ("_" + cell_compartment + "_" + str(radionuclide_distribution_combobox.get()) + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
-                rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
-                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc"))
+            name_folder = ("_" + cell_compartment + "_" + str(radionuclide_distribution_combobox.get()) + "_" + str(
+                spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
+                           rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
+                           str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc"))
             # Si l'utilisateur ne veut pas de géométrie dépendante de la lignée : Aucun changement dans le nom des data a rechercher
             if name_folder in output_folders_name[i] and choice_geom != 1:
                 available_data_date.append(output_folders_name[i][0:10])
@@ -1496,7 +1521,8 @@ def add_new_buttons_to_graphic_window():
             # Si l'utilisateur souhaite une géométrie dépendante : Le nom des data contiennent le nom de la lignée à la fin pour les distinguer
             if ("_" + cell_compartment + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
                 rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
-                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc" + "_" + line )) in output_folders_name[i] and choice_geom == 1:
+                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc" + "_" + line)) in \
+                    output_folders_name[i] and choice_geom == 1:
                 available_data_date.append(output_folders_name[i][0:10])
                 available_data_name_file.append(output_folders_name[i])
 
@@ -1504,12 +1530,15 @@ def add_new_buttons_to_graphic_window():
         for i in range(0, len(output_folders_name)):
             r_sph = geom_list[geom_name_combobox.current()][3:6]
             spheroid_compaction = geom_list[geom_name_combobox.current()][8:10]
-            print("_" + labeling_percentage_get + "_" + str(radionuclide_distribution_combobox.get()) + "_"+ str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
+            print("_" + labeling_percentage_get + "_" + str(radionuclide_distribution_combobox.get()) + "_" + str(
+                spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
+                  rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
+                  str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc"))
+            if ("_" + labeling_percentage_get + "_" + str(radionuclide_distribution_combobox.get()) + "_" + str(
+                    spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
                 rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
-                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc"))
-            if ("_" + labeling_percentage_get + "_" + str(radionuclide_distribution_combobox.get()) + "_"+ str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
-                rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
-                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc")) in output_folders_name[i]:
+                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc")) in \
+                    output_folders_name[i]:
                 available_data_date.append(output_folders_name[i][0:10])
                 available_data_name_file.append(output_folders_name[i])
 
@@ -1534,7 +1563,7 @@ def add_new_buttons_to_graphic_window():
         value=0)
     progress_bar.grid(column=0, row=0, columnspan=2, padx=400, pady=700)
 
-    progress_bar_label = tkinter.ttk.Label(window, text = update_progress_bar_label())
+    progress_bar_label = tkinter.ttk.Label(window, text=update_progress_bar_label())
     progress_bar_label.place(x=450, y=750)
 
 
