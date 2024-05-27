@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 import geometry_informations
 import math
 import nanox_low_energy as nanox
+import numba
 import numpy as np
 import os
 import pandas as pd
@@ -127,50 +128,6 @@ def dn1_de_continuous(cell_line):
     # plt.savefig("Alpha_As_Function_Of_E.png", dpi=600)
     # plt.show()
     return dn1_de_interpolated
-
-def log_normal(x, a, b, c):
-    return 0.344+(a/(x*b*np.sqrt(2*np.pi))) * np.exp(-(np.log(x)-c)**2 / (2*b**2))
-
-
-def moving_average_alpha_tables(alpha_tables, cell_line):
-    """
-    Returns a numpy array with alpha tables smoothered by moving average method
-    """
-    _temp_df = pd.DataFrame()
-    _temp_df["alpha"] = alpha_tables
-    cell_line_specific_window = 0
-    if cell_line == 0: #HSG
-        cell_line_specific_window = 7 #Manual adjustment of moving average
-    elif cell_line == 1: #V79
-        cell_line_specific_window = 5
-    elif cell_line == 2: #CHO-K1
-        cell_line_specific_window = 5
-    moving_average_alpha = _temp_df['alpha'].rolling(window=cell_line_specific_window, center=True,
-                                                     min_periods=1).mean()
-    moving_average_alpha_np = moving_average_alpha.to_numpy()
-    #moving_average_alpha_np = np.insert(moving_average_alpha_np, 0, 0, axis=0)
-
-    return moving_average_alpha_np
-
-def moving_average_dn1_de_tables(dn1_de_from_tables, cell_line):
-    """
-    Returns a numpy array with alpha tables smoothered by moving average method
-    """
-    _temp_df = pd.DataFrame()
-    _temp_df["dn1_de"] = dn1_de_from_tables
-    cell_line_specific_window = 0
-    if cell_line == 0: #HSG
-        cell_line_specific_window = 7 #Manual adjustment of moving average
-    elif cell_line == 1: #V79
-        cell_line_specific_window = 5
-    elif cell_line == 2: #CHO-K1
-        cell_line_specific_window = 5
-    moving_average_dn1_de = _temp_df['dn1_de'].rolling(window=cell_line_specific_window, center=True,
-                                                     min_periods=1).mean()
-    moving_average_dn1_de_np = moving_average_dn1_de.to_numpy()
-    #moving_average_dn1_de_np = np.insert(moving_average_dn1_de_np, 0, 0, axis=0)
-
-    return moving_average_dn1_de_np
 
 
 def determine_cells_in_2_spheroid_zones(positions_x, positions_y, positions_z, radius_zone_1, radius_zone_2, nb_cells):
@@ -702,37 +659,30 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, indice_ava
 
     return pd.concat([analysis_dataframe, analysis_dataframe_temp], ignore_index=True)
 
-def eliminate_bad_cell_ID (root_data_opened, test_file_not_empty, deleted_id_txt, real_id_cells):
+def eliminate_bad_cell_ID(root_data_opened, test_file_not_empty, deleted_id_txt, real_id_cells):
 
-    nb_cellules_reel = len(real_id_cells)
-    perfect_id_cells = np.arange(0,nb_cellules_reel)
+    perfect_id_cells = np.searchsorted(real_id_cells, np.unique(real_id_cells))
 
     ind_alphaplusplus = root_data_opened["nameParticle"] == 'alpha'
     ind_alphaplus = root_data_opened["nameParticle"] == 'alpha+'
     ind_helium = root_data_opened["nameParticle"] == 'helium'
 
-    data_event_level = (np.concatenate((root_data_opened[ind_alphaplusplus],
+    data_event_level = np.concatenate((root_data_opened[ind_alphaplusplus],
                                        root_data_opened[ind_alphaplus],
-                                       root_data_opened[ind_helium])))
+                                       root_data_opened[ind_helium]))
 
     ind_end_of_run = root_data_opened["nameParticle"] == 'EndOfRun'
 
     data_run_level = root_data_opened[ind_end_of_run]
 
-    for ind_modif_id in range(0, len(data_event_level)):
-        index_id_cell = np.where(real_id_cells == data_event_level[ind_modif_id]["ID_Cell"])
-        data_event_level[ind_modif_id]["ID_Cell"] = perfect_id_cells[index_id_cell]
-
-        index_cellule_emission = np.where(real_id_cells == data_event_level[ind_modif_id]["Cellule_D_Emission"])
-        data_event_level[ind_modif_id]["Cellule_D_Emission"] = perfect_id_cells[index_cellule_emission]
+    data_event_level["ID_Cell"] = perfect_id_cells[np.searchsorted(real_id_cells, data_event_level["ID_Cell"])]
+    data_event_level["Cellule_D_Emission"] = perfect_id_cells[np.searchsorted(real_id_cells, data_event_level["Cellule_D_Emission"])]
 
     if test_file_not_empty != 0:
-        elements_to_remove = []
-        for ind_modif_id in range(0, len(data_run_level)):
-            if (data_run_level[ind_modif_id]["ID_Cell"]) in deleted_id_txt:
-                elements_to_remove.append(ind_modif_id)
+        elements_to_remove = np.where(np.in1d(data_run_level["ID_Cell"], deleted_id_txt))[0].tolist()
 
     return elements_to_remove
+
 
 
 def data_info(particle, root_data_opened, indice_available_diffusion_info, elements_to_remove, real_id_cells, test_file_not_empty):
@@ -1013,23 +963,26 @@ def id_deletion_of_root_outputs_with_errors():
     labeling = 100 if (study_type != 1) else float(labeling_combobox.get().rstrip('%'))
     time_start = time.time()
 
+    # for indexe_of_root_output in range(nb_complete_simulations):
+    #     try:
+    #         root_file_name = f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{indexe_of_root_output}_t0.root"
+    #         # print("root_file_name: ", root_file_name)
+    #         print("root_id: ", indexe_of_root_output)
+    #
+    #         with uproot.open(root_file_name) as root_file:
+    #             _ = root_file['cell']['nameParticle'].array(library="np")  # test to see if file is corrupted
+    #             event_id = root_file['cell']['eventID'].array(library="np")
+    #
+    #         if np.max(event_id) > 0.90 * nb_cellules_reel * int(nb_particle_per_cell) * labeling / 100:
+    #             indexes_root_files_without_errors.append(indexe_of_root_output)
+    #             # Security to remove unfinished simulations. We cannot know in advance the number of events.
+    #             # So, the value of 0.9 is arbitrary.
+    #
+    #     except uproot.KeyInFileError:
+    #         pass
+
     for indexe_of_root_output in range(nb_complete_simulations):
-        try:
-            root_file_name = f"Root/outputMultiCellulaire/{dossier_root}{nom_fichier_root}{indexe_of_root_output}_t0.root"
-            # print("root_file_name: ", root_file_name)
-            print("root_id: ", indexe_of_root_output)
-
-            with uproot.open(root_file_name) as root_file:
-                _ = root_file['cell']['nameParticle'].array(library="np")  # test to see if file is corrupted
-                event_id = root_file['cell']['eventID'].array(library="np")
-
-            if np.max(event_id) > 0.90 * nb_cellules_reel * int(nb_particle_per_cell) * labeling / 100:
-                indexes_root_files_without_errors.append(indexe_of_root_output)
-                # Security to remove unfinished simulations. We cannot know in advance the number of events.
-                # So, the value of 0.9 is arbitrary.
-
-        except uproot.KeyInFileError:
-            pass
+        indexes_root_files_without_errors.append(indexe_of_root_output)
 
     indexes_root_files_without_errors = np.sort(indexes_root_files_without_errors)
     nb_files_with_errors = nb_complete_simulations - len(indexes_root_files_without_errors)
@@ -1069,7 +1022,7 @@ def graphic_window():
     radionuclide_distribution_label.place(x=100, y=100)
     selected_radionuclide_distribution = tkinter.StringVar()
     radionuclide_distribution_combobox = tkinter.ttk.Combobox(window, width=35 , textvariable=selected_radionuclide_distribution)
-    radionuclide_distribution_combobox['values'] = ["Uniform", 'LogNormal', 'LogNormalShape0_5', 'LogNormalShape1', 'LogNormalShape2']
+    radionuclide_distribution_combobox['values'] = ["Uniform", 'LogNormal', 'LogNormalShape0_5', 'LogNormalShape1', 'LogNormalShape1_5', 'LogNormalShape2']
     radionuclide_distribution_combobox.current(0)
     radionuclide_distribution_combobox.place(x=400, y=100)
 
@@ -1350,8 +1303,6 @@ def main():
 
     progress_bar['value'] = math.floor(progress_bar['value'])
 
-    print(f"AnalysisResults/{study_type_folder_name}/{nom_dossier_pour_excel_analyse}/AllData_{cell_compartment}.csv")
-
     if study_type == 0:
         analysis_dataframe.to_csv(
             f"AnalysisResults/{study_type_folder_name}/{nom_dossier_pour_excel_analyse}/AllData_{cell_compartment}.csv")
@@ -1363,8 +1314,6 @@ def main():
             f"AnalysisResults/{study_type_folder_name}/{nom_dossier_pour_excel_analyse}/AllData.csv")
         mean_and_std_calculation_dataframe(analysis_dataframe).to_csv(f"AnalysisResults/{study_type_folder_name}/"
                                                                       f"{nom_dossier_pour_excel_analyse}" + "/Results.csv")
-
-    print(f"AnalysisResults/{study_type_folder_name}/{nom_dossier_pour_excel_analyse}/AllData_{cell_compartment}.csv")
 
     print()
     print_mean_results(analysis_dataframe)
@@ -1380,6 +1329,9 @@ def main():
 
     print(" Temps total =  ", (end_time - start_time)//60, "minutes",
           math.floor((end_time - start_time)%60), "secondes")
+
+    from playsound import playsound
+    # playsound('finished.mp3')
 
 def update_progress_bar_label():
     return f"Current progress: {progress_bar['value']} %"
@@ -1435,6 +1387,7 @@ def add_new_buttons_to_graphic_window():
             # et ceux des ID de cellules supprimés de CPOP à G4,
             # sont appelés MassesCell_nom_config.txt, et IDCell_nom_config.txt
             xml_geom = "Cpop_Geom_XML/Previous_Data/" + nom_config + ".cfg" + ".xml"
+            print("xml_geom: ", xml_geom)
             study_type_folder_name = "Internalization/Previous_Data"
             nb_cellules_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
 
@@ -1519,6 +1472,9 @@ def add_new_buttons_to_graphic_window():
                 available_data_name_file.append(output_folders_name[i])
 
             # Si l'utilisateur souhaite une géométrie dépendante : Le nom des data contiennent le nom de la lignée à la fin pour les distinguer
+            print("_" + cell_compartment + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
+                rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
+                str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc" + "_" + line))
             if ("_" + cell_compartment + "_" + str(spheroid_compaction) + "CP_" + str(r_sph) + "um_" +
                 rn_name + "_diff" + bool_diff[diffusion_combobox.current()] + "_" +
                 str(nb_particles_per_cell[number_particles_per_cell_combobox.current()] + "ppc" + "_" + line)) in \
