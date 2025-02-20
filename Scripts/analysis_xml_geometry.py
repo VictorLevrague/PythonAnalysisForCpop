@@ -13,7 +13,7 @@ import numpy as np
 nom_config = "Grid50CP"
 r_sph = 100 #um
 folder_name = "Previous_Data"
-# folder_name = "New_Data"
+PATH_TO_ROOT_CPOP_ANALYSIS_FOLDER = "/home/levrague/Documents/Python/Python_these/CPOP/Analyse_CPOP"
 
 def compute_radius_from_mass(masses):
     rho = 10**(-15) #kg/µm3
@@ -31,7 +31,7 @@ def compute_cell_deformation_factor(masses_cells, maximum_radius):
     return 1 - mean_deformed_masse / maximum_masse
 
 def main():
-    txt_cells_masses = "Cpop_Masse_Txt/" + folder_name + f"/MassesCell_{nom_config}.txt"
+    txt_cells_masses = f"{PATH_TO_ROOT_CPOP_ANALYSIS_FOLDER}/Cpop_Masse_Txt/" + folder_name + f"/MassesCell_{nom_config}.txt"
     masses_cytoplasms, masses_nuclei, masses_cells = geometry_informations.masses_cells_reading(txt_cells_masses) #kg
 
     radii = compute_radius_from_mass(masses_nuclei) #µm

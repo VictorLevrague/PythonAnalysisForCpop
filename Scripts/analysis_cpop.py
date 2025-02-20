@@ -35,8 +35,8 @@ BETAG = [0.0961, 0.0405, 0.0625]  # constant of Monini et al. 2019
 PATH_TO_ROOT_CPOP_ANALYSIS_FOLDER = "/home/levrague/Documents/Python/Python_these/CPOP/Analyse_CPOP"
 CELL_LINE = "V79"
 R_SPHEROID = 100 #um
-# LIST_PPC = [328, 656, 983, 1311, 1639, 3278, 4917, 6556, 8195]
-LIST_PPC = [1639]
+LIST_PPC = [328, 656, 983, 1311, 1639, 3278, 4917, 6556, 8195]
+# LIST_PPC = [1639]
 #########################################################
 
 
@@ -226,6 +226,10 @@ def compute_tcp(survival_total):
     """Computes Tumor Control Probability (TCP) using Poisson and binomial models."""
     return np.prod(np.exp(-survival_total)), np.prod(1 - survival_total)
 
+def fill_with_zero(data, nb_cells):
+    while len(data) < nb_cells:
+        data = np.append(data, 0)
+    return data
 
 def calculations_from_root_file(analysis_dataframe, root_data_opened, real_id_cells, test_file_not_empty,
                                 cell_line, masses_file, elements_to_remove, available_diffusion, available_edep_sph):
@@ -245,6 +249,7 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, real_id_ce
 
     n_unique, n_sub_tab = compute_energy_loss(event_data, cell_line)
     n_sub_unique = np.bincount(event_data["ID_Cell"].astype(int), weights=n_sub_tab)
+    n_unique, n_sub_unique =  fill_with_zero(n_unique, len(real_id_cells)), fill_with_zero(n_sub_unique, len(real_id_cells))
 
     masses_cytoplasms, masses_nuclei, masses_cells = geometry_informations.masses_cells_reading(masses_file)
     dosen, dosec, dose_total = compute_doses(run_data, (masses_cytoplasms, masses_nuclei, masses_cells))
@@ -262,8 +267,10 @@ def calculations_from_root_file(analysis_dataframe, root_data_opened, real_id_ce
         rbe_furusawa, rbe_nakano = compute_rbe(survival_total, spheroid_dose)
 
     nb_particles_per_nucleus = np.bincount((event_data["ID_Cell"]).astype(int))
+    nb_particles_per_nucleus = fill_with_zero(nb_particles_per_nucleus, len(real_id_cells))
     ei_ef_unique_sur_une_simu = np.bincount(event_data["ID_Cell"].astype(int),
                                             weights=event_data["Ei"] - event_data["Ef"])
+    ei_ef_unique_sur_une_simu = fill_with_zero(ei_ef_unique_sur_une_simu, len(real_id_cells))
 
     # Store results
     analysis_dataframe_temp['dose_nucleus_(gy)'] = dosen
@@ -297,7 +304,7 @@ def create_folder_for_output_analysis_files(folder_name):
 def analysis(folder_root, folder_analysis, xml_geom, name_geom, nb_simulations, masses_file):
     """Main function to analyze ROOT files and generate CSV reports."""
 
-    start_time = time.perf_counter()
+    # start_time = time.perf_counter()
     print("folder_root:", folder_root)
     print("folder_analysis:", folder_analysis)
     create_folder_for_output_analysis_files(folder_analysis)
@@ -317,7 +324,6 @@ def analysis(folder_root, folder_analysis, xml_geom, name_geom, nb_simulations, 
                                                test_file_not_empty, elements_to_remove, masses_file,
                                                available_diffusion, available_edep_sph)
     save_analysis_results(analysis_dataframe, folder_analysis)
-    log_execution_time(start_time)
 
 
 def process_root_file(folder_name, simulation_id, analysis_dataframe, real_id_cells, test_file_not_empty,
@@ -366,7 +372,7 @@ def log_execution_time(start_time):
     """Logs the total execution time of the script."""
     end_time = time.perf_counter()
     total_seconds = int(end_time - start_time)
-    print(f"\nTotal time: {total_seconds // 60} minutes {total_seconds % 60} seconds")
+    print(f"\nTotal time: {total_seconds // 60} minutes {total_seconds % 60} seconds\n")
 
 
 def main():
@@ -388,6 +394,7 @@ def main():
         folder_root = f"{PATH_TO_ROOT_CPOP_ANALYSIS_FOLDER}/Root/output/{name_config}/output_{ppc}ppc"
         folder_analysis = f"{analysis_config}/output_{ppc}ppc"
         analysis(folder_root, folder_analysis, xml_geometry_file, geometry_name, nb_simulations, masses_file)
+    log_execution_time(START_TIME)
 
 
 if __name__ == "__main__":
