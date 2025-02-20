@@ -24,7 +24,6 @@ np.set_printoptions(threshold=sys.maxsize)
 
 START_TIME = time.perf_counter()
 
-
 KEV_IN_J = 1.60218 * 1e-16
 WATER_DENSITY = 1e-15  #kg/µm³
 UNIT_COEFFICIENT_A = KEV_IN_J / WATER_DENSITY # Gy.µm³.keV-1
@@ -33,6 +32,7 @@ BETA_PHOTON = [0.062, 0.020, 0.020]
 BETAG = [0.0961, 0.0405, 0.0625]  # constant of Monini et al. 2019
 
 #################### User parameters ####################
+PATH_TO_ROOT_CPOP_ANALYSIS_FOLDER = "/home/levrague/Documents/Python/Python_these/CPOP/Analyse_CPOP"
 CELL_LINE = "V79"
 R_SPHEROID = 100 #um
 # LIST_PPC = [328, 656, 983, 1311, 1639, 3278, 4917, 6556, 8195]
@@ -196,12 +196,8 @@ def compute_rbe(mean_survival, spheroid_dose):
         case "CHO-K1":
             cell_id = 2
     dose_bio_furusawa = compute_biological_dose(mean_survival, ALPHA_PHOTON[cell_id], BETA_PHOTON[cell_id])
-    print(dose_bio_furusawa)
     dose_bio_nakano = compute_biological_dose(mean_survival, alpha_ref_hsg_aoki_nakano, beta_ref_hsg_aoki_nakano)
     rbe_furusawa = dose_bio_furusawa / spheroid_dose
-    print(spheroid_dose)
-    print(rbe_furusawa)
-    print()
     rbe_nakano = dose_bio_nakano / spheroid_dose
     return rbe_furusawa, rbe_nakano
 
@@ -308,7 +304,7 @@ def analysis(folder_root, folder_analysis, xml_geom, name_geom, nb_simulations, 
 
     nb_cells_xml = geometry_informations.count_number_of_cells_in_xml_file(xml_geom)
 
-    txt_id_deleted_cells = Path(f"Cpop_Deleted_Cells_ID_Txt/Previous_Data/IDCell_{name_geom}.txt")
+    txt_id_deleted_cells = Path(f"{PATH_TO_ROOT_CPOP_ANALYSIS_FOLDER}/Cpop_Deleted_Cells_ID_Txt/Previous_Data/IDCell_{name_geom}.txt")
     real_id_cells, test_file_not_empty, deleted_id_txt = geometry_informations.cpop_real_cell_id_determination(
         txt_id_deleted_cells, nb_cells_xml)
 
@@ -377,19 +373,19 @@ def main():
     study_name = "NetiComparison"
     geometry_name = "Net100um47CP"
     distribution_type = "Uniform"
-    xml_geometry_file = f"Cpop_Geom_XML/{geometry_name}.cfg.xml"
+    xml_geometry_file = f"{PATH_TO_ROOT_CPOP_ANALYSIS_FOLDER}/Cpop_Geom_XML/{geometry_name}.cfg.xml"
     radionuclide = "Po210"
     labeling = 1
     date = "2025_02_19"
     nb_simulations = 20
     ####################
     name_config = f"{study_name}/{geometry_name}/{distribution_type}/Labeling{labeling}%/{radionuclide}/{date}"
-    analysis_config = f"AnalysisResults/{name_config}"
-    masses_file = f"Cpop_Masse_Txt/MassesCell_{geometry_name}.txt"
+    analysis_config = f"{PATH_TO_ROOT_CPOP_ANALYSIS_FOLDER}/AnalysisResults/{name_config}"
+    masses_file = f"{PATH_TO_ROOT_CPOP_ANALYSIS_FOLDER}/Cpop_Masse_Txt/MassesCell_{geometry_name}.txt"
     ####################
     for ppc in LIST_PPC:
         print(ppc, " ppc", " + ", distribution_type, " distribution")
-        folder_root = f"Root/output/{name_config}/output_{ppc}ppc"
+        folder_root = f"{PATH_TO_ROOT_CPOP_ANALYSIS_FOLDER}/Root/output/{name_config}/output_{ppc}ppc"
         folder_analysis = f"{analysis_config}/output_{ppc}ppc"
         analysis(folder_root, folder_analysis, xml_geometry_file, geometry_name, nb_simulations, masses_file)
 
